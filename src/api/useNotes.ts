@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
 
 import * as api from './notes';
+import { subscribeToSession, peekToken } from './session';
 import type { Note } from './notes';
 
 /**
@@ -73,6 +74,18 @@ export function resetNotes() {
     inFlight = null;
     set({ notes: [], status: 'idle', error: undefined });
 }
+
+/**
+ * Clear the store whenever the session ends, however it ends.
+ *
+ * you.tsx calls resetNotes() on a deliberate sign-out, but a session can also
+ * end underneath the user when a token expires — client.ts drops it on a 401.
+ * Subscribing here covers both, so one account's notes can never survive into
+ * another's session on a shared device.
+ */
+subscribeToSession(() => {
+    if (!peekToken() && state.status !== 'idle') resetNotes();
+});
 
 export function useNotes() {
     const current = useSyncExternalStore(subscribe, snapshot, snapshot);

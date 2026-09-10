@@ -1,5 +1,5 @@
 import { API_BASE } from './config';
-import { getToken } from './session';
+import { clearToken, getToken } from './session';
 
 /**
  * The one place a request to the studio is made.
@@ -96,6 +96,20 @@ export async function request<T>(path: string, options: Options = {}): Promise<T
     if (!response.ok) {
         const bodyObject = (payload ?? {}) as Record<string, unknown>;
         const message = (bodyObject.error as string | undefined) ?? `Request failed (${response.status}).`;
+
+        // A 401 on a request that DID carry a token means the token is no
+        // longer good — expired, or revoked from the studio. Dropping it here
+        // is what ends the session: useSession sees the change and the guard in
+        // _layout.tsx sends the user to /welcome. Without this the app stays
+        // convinced it is signed in and every screen fails identically forever,
+        // with the manual Log out on the You tab as the only way out.
+        //
+        // Anonymous requests are exempt: /auth/verify answers 401 for a
+        // mistyped code, which is an ordinary outcome and not a dead session.
+        if (response.status === 401 && !anonymous) {
+            await clearToken();
+        }
+
         throw new ApiError(message, response.status, bodyObject);
     }
 
