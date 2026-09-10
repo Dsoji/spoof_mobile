@@ -1,18 +1,40 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { useEffect } from 'react';
+import { useFonts } from 'expo-font';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { color, fontAssets } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
-  );
+export default function RootLayout() {
+    const [loaded] = useFonts(fontAssets);
+
+    useEffect(() => {
+        // Holding the splash until the faces land avoids a frame of system font,
+        // which is very visible against DM Serif headlines.
+        if (loaded) SplashScreen.hideAsync();
+    }, [loaded]);
+
+    if (!loaded) return null;
+
+    return (
+        <SafeAreaProvider>
+            <StatusBar style="dark" />
+            <Stack
+                screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: color.cream },
+                }}
+            >
+                <Stack.Screen name="capture" options={{ presentation: 'modal' }} />
+                <Stack.Screen
+                    name="publish"
+                    options={{ presentation: 'transparentModal', animation: 'fade' }}
+                />
+            </Stack>
+        </SafeAreaProvider>
+    );
 }

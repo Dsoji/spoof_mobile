@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "react-native-ai-skills": {
+      "source": "callstackincubator/ai",
+      "sourceType": "github",
+      "skillPath": "skills/react-native-ai/SKILL.md",
+      "computedHash": "781c305200c944ac143a05c4301abc751560da6aaf4e6900094560aae9d502e6"
+    }
+  }
+}

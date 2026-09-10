@@ -1,56 +1,96 @@
-# Welcome to your Expo app 👋
+# Spoof Kitchen — mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+The pocket companion to the Spoof Kitchen studio: **jot a note, turn it into a
+post, schedule it, watch the streak.** Not a port of the web dashboard — there
+is no board canvas, no analytics suite, no team management here.
 
-## Get started
+Expo SDK 57 · expo-router · React Native 0.86 · TypeScript.
 
-1. Install dependencies
+## Status
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+**UI shell.** Every screen is built and navigable against fixtures in
+`src/data/mock.ts`. Nothing talks to a server yet — see *What's missing* below.
 
 ```bash
-npm run reset-project
+npm start          # Metro
+npm run ios        # simulator
+npm run typecheck  # tsc + the shadow guard
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Layout
 
-### Other setup steps
+```
+src/
+  app/          expo-router routes (see below)
+  components/   Icon, ui primitives, Prep, PlanCards
+  data/mock.ts  fixtures, shaped like the real endpoints
+  theme/        tokens, fonts, type scale
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+### Routes
 
-## Learn more
+| Route | Screen |
+| --- | --- |
+| `welcome`, `verify` | Passwordless sign-in — 6-digit OTP, Apple, Google |
+| `onboarding/niche`, `goal`, `channels` | The prep questions, then connect a channel |
+| `(tabs)/index` | Home — streak, quick actions, recent notes and posts |
+| `(tabs)/notes` | The capture inbox |
+| `(tabs)/calendar` | Reminders and scheduled posts, merged |
+| `(tabs)/you` | Activity graph and stats |
+| `capture`, `note/[id]`, `compose`, `publish` | Jot → note → post → publish |
+| `plans`, `checkout` | Paystack paywall — web and Android |
+| `plans-ios`, `billing` | App Store paywall and subscription management |
 
-To learn more about developing your project with Expo, look at the following resources:
+## Conventions
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+**Colours come from the studio, not from here.** `src/theme/tokens.ts` mirrors
+the `@theme` block in the web app's `src/app/globals.css`, hex for hex. When a
+colour changes there, change it here — a drifted palette is exactly what that
+token block was written to prevent.
 
-## Join the community
+**Shadows are `boxShadow`, never the native props.** React Native's `shadow*`
+props are iOS-only and Android renders `elevation` as a hard Material shadow,
+so a screen built with them looks right on half your devices. Use the theme's
+`shadow.*` and `glow()`. `npm run check:shadows` fails the build otherwise.
 
-Join our community of developers creating universal apps.
+**Fonts are families, not weights.** RN does not synthesise weights for custom
+faces — `fontWeight: '800'` on a family that ships Regular silently renders
+Regular. Every weight is its own loaded family; call sites pick `font.bold`,
+never `fontWeight`.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+**44pt minimum on anything tappable.** `HIT` in `src/theme/type.ts`.
+
+**No fake chrome.** The status bar and home indicator are real; screens read
+safe-area insets rather than painting a stand-in.
+
+## What's missing
+
+The backend this app needs does not exist yet. In rough order:
+
+1. **A mobile-facing API.** The studio's logic lives in Server Actions, which
+   are only callable from its own React bundle. Mobile needs `/api/v1/*` route
+   handlers over the same functions — notes, channels, posts, media, calendar,
+   activity.
+2. **Bearer auth.** Better Auth needs its bearer/Expo plugin so the OTP issues
+   a token instead of a cookie.
+3. **`board_items.remind_at`.** A note is a `board_items` row of type `text`,
+   which has no date column — so "remind me" cannot reach the calendar or fire
+   anything. One nullable timestamp plus an index.
+4. **Activity logging for notes.** The graph reads `activity_logs`, already
+   collecting from ideas, posting and AI — but `boards.ts` logs nothing, so
+   jotting, the app's most common action, contributes zero.
+5. **An idempotency key on publish.** A request can time out at the client and
+   still succeed at the server. On mobile that means a second tap double-posts
+   to a real audience.
+6. **Push.** No device-token table, no scheduler. Reminders sit on the calendar
+   and nothing nudges.
+7. **RevenueCat + a `/api/webhooks/revenuecat` route.** iOS purchases go
+   through Apple, marked up so the 30% commission still nets the Naira price.
+   Both stores write `workspaces.plan`, so decide who wins when a user
+   subscribes twice.
+
+## Placeholders
+
+Platform marks and the Apple/Google button glyphs are monograms and stand-ins —
+swap in each vendor's official asset before shipping. Apple has specific rules
+on its button's size, radius and label.
