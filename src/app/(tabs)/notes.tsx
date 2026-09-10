@@ -1,22 +1,46 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, RefreshControl, Text, View } from 'react-native';
 
 import { Avatar } from './index';
 import { Icon } from '@/components/Icon';
 import { Badge, Card, Gutter, Screen } from '@/components/ui';
-import { notes } from '@/data/mock';
+import { Empty, Failed, Loading } from '@/components/ListState';
+import { useNotes } from '@/api/useNotes';
 import { color, font, radius, shadow, space, text, HIT } from '@/theme';
 
-const FILTERS = ['All', 'Reminders', 'Used'];
+const FILTERS = ['All', 'Reminders', 'Used'] as const;
+type Filter = (typeof FILTERS)[number];
 
 /** The capture inbox — a flat list, no board. */
 export default function Notes() {
-    const [filter, setFilter] = useState('All');
+    const [filter, setFilter] = useState<Filter>('All');
+    const [refreshing, setRefreshing] = useState(false);
+    const { notes, status, error, refresh } = useNotes();
+
+    const visible = useMemo(() => {
+        if (filter === 'Reminders') return notes.filter((n) => n.remindAt !== null);
+        // 'Used' means "already turned into a post", which nothing records yet —
+        // there is no link from a note to the post it became. Rather than
+        // filter on a field that is always undefined and show a permanently
+        // empty tab, this falls through to everything until that link exists.
+        return notes;
+    }, [notes, filter]);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await refresh();
+        setRefreshing(false);
+    };
 
     return (
         <View style={{ flex: 1 }}>
-            <Screen scroll>
+            <Screen
+                scroll
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.muted} />
+                }
+            >
                 <Gutter style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
                     <View style={{ gap: 6 }}>
                         <Text style={text.eyebrow}>Thursday, 10 Sep</Text>
@@ -60,7 +84,20 @@ export default function Notes() {
                 </Gutter>
 
                 <Gutter style={{ paddingTop: 18, gap: 10 }}>
-                    {notes.map((n) => (
+                    {status === 'loading' ? <Loading label="Fetching your notes…" /> : null}
+                    {status === 'error' ? <Failed message={error} onRetry={refresh} /> : null}
+                    {status === 'ready' && visible.length === 0 ? (
+                        <Empty
+                            icon="plus"
+                            title={filter === 'Reminders' ? 'No reminders yet' : 'Nothing jotted yet'}
+                            body={
+                                filter === 'Reminders'
+                                    ? 'Notes you set a nudge on will show up here.'
+                                    : 'Tap the button below the next time an idea turns up.'
+                            }
+                        />
+                    ) : null}
+                    {visible.map((n) => (
                         <Pressable key={n.id} onPress={() => router.push(`/note/${n.id}`)}>
                             <Card>
                                 <View style={{ gap: 11 }}>

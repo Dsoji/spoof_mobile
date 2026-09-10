@@ -1,10 +1,12 @@
 import { router } from 'expo-router';
-import { Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
 import { Badge, Card, Gutter, ListRow, Screen } from '@/components/ui';
 import { ACTIVITY, me, STATS } from '@/data/mock';
-import { color, font, graphRamp, radius, space, text } from '@/theme';
+import { clearToken } from '@/api/session';
+import { resetNotes } from '@/api/useNotes';
+import { color, font, graphRamp, HIT, radius, space, text } from '@/theme';
 
 const MONTHS = ['May', 'Jun', 'Jul', 'Aug', 'Sep'];
 
@@ -15,6 +17,37 @@ const MONTHS = ['May', 'Jun', 'Jul', 'Aug', 'Sep'];
  * AI — but boards.ts logs nothing, so notes contribute zero today. That gap has
  * to close before this screen tells the truth.
  */
+/**
+ * Sign out.
+ *
+ * Drops the bearer token and everything fetched with it, then sends the user
+ * back to the first-launch screen with `replace` so the tabs are gone from the
+ * history stack and a back gesture cannot walk into a signed-out session.
+ *
+ * The session row itself still lives on the studio until it expires — revoking
+ * it needs an endpoint that does not exist yet (docs/API_CONTRACT.md). Until
+ * then this is a local sign-out, which is why a failed keychain delete has to
+ * be surfaced rather than swallowed: the token would still be on disk and the
+ * next launch would quietly restore it.
+ */
+async function signOut() {
+    try {
+        await clearToken();
+    } catch (e: unknown) {
+        Alert.alert('Could not sign out', e instanceof Error ? e.message : 'Try again.');
+        return;
+    }
+    resetNotes();
+    router.replace('/welcome');
+}
+
+function confirmSignOut() {
+    Alert.alert('Log out?', `You'll need a new code to get back into ${me.email}.`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Log out', style: 'destructive', onPress: () => void signOut() },
+    ]);
+}
+
 export default function You() {
     const columns = Array.from({ length: ACTIVITY.cols }, (_, c) =>
         ACTIVITY.cells.slice(c * ACTIVITY.rows, c * ACTIVITY.rows + ACTIVITY.rows),
@@ -139,6 +172,25 @@ export default function You() {
                     icon="lock"
                     onPress={() => router.push('/billing')}
                 />
+            </Gutter>
+
+            <Gutter style={{ paddingTop: 10 }}>
+                <Pressable
+                    onPress={confirmSignOut}
+                    style={({ pressed }) => ({
+                        minHeight: HIT,
+                        height: 52,
+                        borderRadius: radius.cta,
+                        backgroundColor: color.surface,
+                        borderWidth: 1.5,
+                        borderColor: color.dangerBorder,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: pressed ? 0.9 : 1,
+                    })}
+                >
+                    <Text style={[text.cta, { color: color.danger }]}>Log out</Text>
+                </Pressable>
             </Gutter>
         </Screen>
     );

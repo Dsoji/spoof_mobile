@@ -3,7 +3,9 @@ import { Pressable, Text, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/Icon';
 import { Badge, Card, Gutter, Screen, SectionHeader } from '@/components/ui';
-import { me, notes, posts, STREAK } from '@/data/mock';
+import { me, posts, STREAK } from '@/data/mock';
+import { Empty, Failed, Loading } from '@/components/ListState';
+import { useNotes } from '@/api/useNotes';
 import { color, font, graphRamp, radius, shadow, space, text } from '@/theme';
 
 /**
@@ -13,6 +15,8 @@ import { color, font, graphRamp, radius, shadow, space, text } from '@/theme';
  * deliberate; the point is a glance, and "See all" is right there.
  */
 export default function Home() {
+    const { notes, status: noteStatus, error: noteError, refresh: refreshNotes } = useNotes();
+
     return (
         <Screen scroll>
             <Gutter style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
@@ -60,6 +64,11 @@ export default function Home() {
             <Gutter style={{ paddingTop: 24, gap: 11 }}>
                 <SectionHeader label="Recent notes" action="See all" />
                 <View style={{ gap: 9 }}>
+                    {noteStatus === 'loading' ? <Loading label="Fetching your notes…" /> : null}
+                    {noteStatus === 'error' ? <Failed message={noteError} onRetry={refreshNotes} /> : null}
+                    {noteStatus === 'ready' && notes.length === 0 ? (
+                        <Empty icon="plus" title="Nothing jotted yet" body="Your last two notes will sit here." />
+                    ) : null}
                     {notes.slice(0, 2).map((n) => (
                         <Pressable key={n.id} onPress={() => router.push(`/note/${n.id}`)}>
                             <Card padded={0}>

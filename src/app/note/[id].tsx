@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
 import { Button, Card, Gutter, IconButton, Screen } from '@/components/ui';
-import { notes } from '@/data/mock';
+import { Empty, Failed, Loading } from '@/components/ListState';
+import { useNotes } from '@/api/useNotes';
+import { jottedLabel, reminderDetail } from '@/api/format';
 import { color, font, space, text, HIT } from '@/theme';
 
 /** Suggestions are the existing AI idea/caption generation, reused as the note→post bridge. */
@@ -15,7 +18,51 @@ const ANGLES = [
 
 export default function NoteDetail() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const note = notes.find((n) => n.id === id) ?? notes[0];
+    const { notes, status, error, refresh, remove } = useNotes();
+    const [deleting, setDeleting] = useState(false);
+    const note = notes.find((n) => n.id === id);
+
+    const onDelete = () => {
+        if (!note) return;
+        // Deleting is the one destructive thing on this screen and there is no
+        // undo behind it, so it asks first.
+        Alert.alert('Delete this note?', 'This cannot be undone.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    setDeleting(true);
+                    try {
+                        await remove(note.id);
+                        router.back();
+                    } catch (e) {
+                        setDeleting(false);
+                        Alert.alert('Could not delete', e instanceof Error ? e.message : 'Try again.');
+                    }
+                },
+            },
+        ]);
+    };
+
+    // The list may not have loaded yet — this screen is reachable from a deep
+    // link, not only from a tap on a note that was already on screen.
+    if (!note) {
+        return (
+            <Screen>
+                <Gutter>
+                    <IconButton name="chevronLeft" onPress={() => router.back()} />
+                </Gutter>
+                <Gutter style={{ paddingTop: 40 }}>
+                    {status === 'loading' || status === 'idle' ? <Loading /> : null}
+                    {status === 'error' ? <Failed message={error} onRetry={refresh} /> : null}
+                    {status === 'ready' ? (
+                        <Empty icon="file" title="Note not found" body="It may have been deleted." />
+                    ) : null}
+                </Gutter>
+            </Screen>
+        );
+    }
 
     return (
         <Screen
@@ -24,14 +71,14 @@ export default function NoteDetail() {
         >
             <Gutter style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <IconButton name="chevronLeft" onPress={() => router.back()} />
-                <IconButton name="trash" tint={color.danger} />
+                <IconButton name="trash" tint={deleting ? color.inactiveFg : color.danger} onPress={onDelete} />
             </Gutter>
 
             <Gutter style={{ paddingTop: 30, gap: 12 }}>
                 <Text style={{ fontFamily: font.medium, fontSize: 22, lineHeight: 31, color: color.ink }}>
                     {note.text}
                 </Text>
-                <Text style={[text.meta, { fontFamily: font.semibold }]}>Jotted a few minutes ago</Text>
+                <Text style={[text.meta, { fontFamily: font.semibold }]}>{jottedLabel(note.createdAt)}</Text>
             </Gutter>
 
             {note.remindLabel ? (
@@ -60,7 +107,7 @@ export default function NoteDetail() {
                                 <Icon name="clock" size={19} tint={color.brand} weight={2.1} />
                             </View>
                             <View style={{ flex: 1, gap: 2 }}>
-                                <Text style={text.label}>Friday, 11 Sep · 8:00</Text>
+                                <Text style={text.label}>{reminderDetail(note.remindAt)}</Text>
                                 <Text style={[text.meta, { fontFamily: font.medium }]}>You’ll get a nudge</Text>
                             </View>
                             <Pressable style={{ minHeight: HIT, justifyContent: 'center', paddingHorizontal: 4 }}>

@@ -1,10 +1,21 @@
 import { useState } from 'react';
 import { router } from 'expo-router';
-import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    Text,
+    TextInput,
+    View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/Icon';
 import { Card, Gutter } from '@/components/ui';
+import { useNotes } from '@/api/useNotes';
+import { presetToIso } from '@/api/format';
 import { color, font, layout, radius, space, text, HIT } from '@/theme';
 
 const PRESETS = ['Later today', 'Tomorrow, 8:00', 'This weekend'];
@@ -12,13 +23,33 @@ const PRESETS = ['Later today', 'Tomorrow, 8:00', 'This weekend'];
 /**
  * Jot a note.
  *
- * The note is a `board_items` row of type 'text' — `{ text }` and nothing else.
- * The reminder presets are the one piece with no column behind them yet.
+ * The note is a `board_items` row of type 'text' — `{ text }` plus, since the
+ * studio's 20260910 migration, a nullable `remind_at`. The presets resolve to a
+ * real instant on this side of the wire; see presetToIso.
  */
 export default function Capture() {
     const insets = useSafeAreaInsets();
     const [body, setBody] = useState('');
     const [remind, setRemind] = useState<string | null>('Tomorrow, 8:00');
+    const [saving, setSaving] = useState(false);
+    const { create } = useNotes();
+
+    const canSave = body.trim().length > 0 && !saving;
+
+    const onSave = async () => {
+        if (!canSave) return;
+        setSaving(true);
+        try {
+            await create({ text: body.trim(), remindAt: remind ? presetToIso(remind) : null });
+            router.back();
+        } catch (e) {
+            // Stay on the screen with the text intact — losing what someone
+            // just typed because the network blinked is the one unforgivable
+            // failure for a capture inbox.
+            setSaving(false);
+            Alert.alert('Could not save', e instanceof Error ? e.message : 'Try again.');
+        }
+    };
 
     return (
         <KeyboardAvoidingView
@@ -35,25 +66,31 @@ export default function Capture() {
                     </Pressable>
                     <Text style={[text.eyebrow, { fontSize: 12, letterSpacing: 1.7 }]}>New note</Text>
                     <Pressable
-                        onPress={() => router.back()}
+                        onPress={onSave}
+                        disabled={!canSave}
                         style={{
                             height: HIT,
+                            minWidth: 84,
                             paddingHorizontal: 18,
                             borderRadius: radius.cta,
-                            backgroundColor: body ? color.brand : color.inactive,
+                            backgroundColor: canSave ? color.brand : color.inactive,
                             alignItems: 'center',
                             justifyContent: 'center',
                         }}
                     >
-                        <Text
-                            style={{
-                                fontFamily: font.extrabold,
-                                fontSize: 14,
-                                color: body ? color.surface : color.inactiveFg,
-                            }}
-                        >
-                            Save
-                        </Text>
+                        {saving ? (
+                            <ActivityIndicator color={color.surface} size="small" />
+                        ) : (
+                            <Text
+                                style={{
+                                    fontFamily: font.extrabold,
+                                    fontSize: 14,
+                                    color: canSave ? color.surface : color.inactiveFg,
+                                }}
+                            >
+                                Save
+                            </Text>
+                        )}
                     </Pressable>
                 </Gutter>
 

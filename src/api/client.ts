@@ -1,0 +1,93 @@
+import { API_BASE } from './config';
+import { getToken } from './session';
+
+/**
+ * The one place a request to the studio is made.
+ *
+ * Every route under /api/v1 answers `{ error: string }` with a real status
+ * code, so failures are turned into a thrown ApiError carrying both — screens
+ * can show `e.message` directly, and a 401 is distinguishable from an outage
+ * without parsing prose.
+ */
+
+export class ApiError extends Error {
+    readonly status: number;
+
+    constructor(message: string, status: number) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+    }
+
+    /** The token is missing, expired, or was revoked — sign in again. */
+    get isAuth(): boolean {
+        return this.status === 401;
+    }
+}
+
+/** Nothing reached the server: airplane mode, dead wifi, wrong API_URL. */
+export class NetworkError extends Error {
+    constructor(cause: unknown) {
+        super('Could not reach the studio. Check your connection.');
+        this.name = 'NetworkError';
+        this.cause = cause;
+    }
+}
+
+type Options = {
+    method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+    body?: unknown;
+    /** Abort in-flight when a screen unmounts mid-request. */
+    signal?: AbortSignal;
+};
+
+export async function request<T>(path: string, options: Options = {}): Promise<T> {
+    const { method = 'GET', body, signal } = options;
+    const token = await getToken();
+
+    if (!token) {
+        throw new ApiError('Not signed in.', 401);
+    }
+
+    let response: Response;
+    try {
+        response = await fetch(`${API_BASE}${path}`, {
+            method,
+            signal,
+            headers: {
+                Authorization: `Bearer ${token}`,
+                ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+            },
+            body: body === undefined ? undefined : JSON.stringify(body),
+        });
+    } catch (e) {
+        // Rethrow a cancellation as-is; callers ignore it, and dressing it up as
+        // a network failure would flash an error on a screen the user just left.
+        if (e instanceof Error && e.name === 'AbortError') throw e;
+        throw new NetworkError(e);
+    }
+
+    // 204 and friends have no body to parse.
+    const raw = response.status === 204 ? '' : await response.text();
+    let payload: unknown = null;
+    if (raw) {
+        try {
+            payload = JSON.parse(raw);
+        } catch {
+            // An HTML body here almost always means the request never reached a
+            // route handler — a redirect to /login, or a proxy error page. Say
+            // so rather than surfacing a JSON parse error.
+            throw new ApiError(
+                response.ok ? 'The studio returned an unexpected response.' : `Request failed (${response.status}).`,
+                response.ok ? 500 : response.status,
+            );
+        }
+    }
+
+    if (!response.ok) {
+        const message = (payload as { error?: string } | null)?.error ?? `Request failed (${response.status}).`;
+        throw new ApiError(message, response.status);
+    }
+
+    return payload as T;
+}

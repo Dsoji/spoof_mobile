@@ -6,8 +6,16 @@
  * restating the design. That keeps the two clients from drifting.
  */
 
-import type { ReactNode } from 'react';
-import { Pressable, ScrollView, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import type { ReactElement, ReactNode } from 'react';
+import {
+    Pressable,
+    ScrollView,
+    Text,
+    View,
+    type RefreshControlProps,
+    type StyleProp,
+    type ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from './Icon';
@@ -25,12 +33,15 @@ export function Screen({
     children,
     scroll = false,
     footer,
+    refreshControl,
 }: {
     children: ReactNode;
     /** Content taller than the viewport. */
     scroll?: boolean;
     /** Pinned above the home indicator — primary actions live here. */
     footer?: ReactNode;
+    /** Pull-to-refresh, for screens backed by a fetch. Requires `scroll`. */
+    refreshControl?: ReactElement<RefreshControlProps>;
 }) {
     const insets = useSafeAreaInsets();
     const top = insets.top + layout.headerTop;
@@ -43,7 +54,9 @@ export function Screen({
                 contentContainerStyle={
                     scroll ? { paddingTop: top, paddingBottom: space.xxl } : undefined
                 }
-                {...(scroll ? { showsVerticalScrollIndicator: false } : { style: { flex: 1, paddingTop: top } })}
+                {...(scroll
+                    ? { showsVerticalScrollIndicator: false, refreshControl }
+                    : { style: { flex: 1, paddingTop: top } })}
             >
                 {children}
             </Body>

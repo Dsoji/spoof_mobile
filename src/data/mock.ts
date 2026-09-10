@@ -3,23 +3,12 @@
  *
  * Shaped to match what the endpoints will actually return, so wiring them up
  * later is a swap rather than a rewrite:
- *   note   → a `board_items` row of type 'text' on the workspace Library board
  *   post   → a Zernio post as `getPosts` returns it
  *   day    → the merge of note reminders, ideas.planned_at and scheduled posts
  *
- * `remindAt` is the one field with no column behind it yet — it needs a
- * nullable `board_items.remind_at`, without which a "remind me" note can never
- * reach the calendar.
+ * Notes are no longer here: they come from `@/api/useNotes`, backed by
+ * /api/v1/notes in the studio. Everything below is still a fixture.
  */
-
-export type Note = {
-    id: string;
-    text: string;
-    createdLabel: string;
-    remindLabel?: string;
-    /** Set once the note has been turned into a post. */
-    state?: 'draft' | 'posted';
-};
 
 export type Post = {
     id: string;
@@ -37,13 +26,6 @@ export const me = {
     email: 'dami@brewbylagos.com',
     plan: 'Pro',
 };
-
-export const notes: Note[] = [
-    { id: 'n1', text: 'remind me to create content relating to coffee', createdLabel: '2m ago', remindLabel: 'Fri, 8:00' },
-    { id: 'n2', text: 'the 3-shot latte art clip did numbers — turn it into a series?', createdLabel: 'Yesterday', state: 'draft' },
-    { id: 'n3', text: 'hook: “you’ve been grinding your beans wrong this whole time”', createdLabel: 'Yesterday' },
-    { id: 'n4', text: 'ask Tunde for the roastery b-roll before the weekend', createdLabel: '2d ago', remindLabel: 'Tomorrow' },
-];
 
 export const posts: Post[] = [
     {
