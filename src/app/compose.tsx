@@ -22,7 +22,7 @@ export default function Compose() {
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                     <Pressable
                         style={{
-                            height: 52,
+                            height: 56,
                             paddingHorizontal: 18,
                             borderRadius: 16,
                             backgroundColor: color.field,
@@ -35,7 +35,12 @@ export default function Compose() {
                         <Text style={{ fontFamily: font.extrabold, fontSize: 14, color: color.muted }}>Draft</Text>
                     </Pressable>
                     <View style={{ flex: 1 }}>
-                        <Button label="Publish" icon="arrowRight" onPress={() => router.push('/publish')} />
+                        <Button
+                            label="Publish"
+                            icon="arrowRight"
+                            iconSide="trailing"
+                            onPress={() => router.push('/publish')}
+                        />
                     </View>
                 </View>
             }

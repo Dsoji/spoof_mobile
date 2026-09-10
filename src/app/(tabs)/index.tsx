@@ -49,10 +49,12 @@ export default function Home() {
                 </Card>
             </Gutter>
 
+            {/* Two actions, because there are exactly two things you create: a note,
+                or a post. Scheduling is a status picked at publish time on the same
+                publishPost call — never a separate destination. */}
             <Gutter style={{ paddingTop: 14, flexDirection: 'row', gap: 10 }}>
                 <QuickAction label="Jot a note" icon="plus" primary onPress={() => router.push('/capture')} />
                 <QuickAction label="New post" icon="send" onPress={() => router.push('/compose')} />
-                <QuickAction label="Schedule" icon="calendar" onPress={() => router.push('/(tabs)/calendar')} />
             </Gutter>
 
             <Gutter style={{ paddingTop: 24, gap: 11 }}>

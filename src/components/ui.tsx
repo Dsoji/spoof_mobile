@@ -138,13 +138,18 @@ export function Button({
     onPress,
     variant = 'primary',
     icon,
+    iconSide = 'leading',
     disabled = false,
+    height = 56,
 }: {
     label: string;
     onPress?: () => void;
     variant?: 'primary' | 'secondary' | 'dark';
     icon?: IconName;
+    /** Trailing for forward motion ("Publish →"); leading for everything else. */
+    iconSide?: 'leading' | 'trailing';
     disabled?: boolean;
+    height?: number;
 }) {
     const bg =
         disabled ? color.inactive
@@ -161,7 +166,7 @@ export function Button({
             onPress={disabled ? undefined : onPress}
             style={({ pressed }) => [
                 {
-                    height: 56,
+                    height,
                     borderRadius: radius.cta,
                     backgroundColor: bg,
                     borderWidth: variant === 'secondary' ? 1.5 : 0,
@@ -175,8 +180,9 @@ export function Button({
                 variant === 'primary' && !disabled && shadow.cta,
             ]}
         >
-            {icon ? <Icon name={icon} size={17} tint={fg} /> : null}
+            {icon && iconSide === 'leading' ? <Icon name={icon} size={17} tint={fg} /> : null}
             <Text style={[text.cta, { color: fg }]}>{label}</Text>
+            {icon && iconSide === 'trailing' ? <Icon name={icon} size={17} tint={fg} /> : null}
         </Pressable>
     );
 }
