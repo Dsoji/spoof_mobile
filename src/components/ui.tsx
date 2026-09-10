@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Icon, type IconName } from './Icon';
+import { AppleMark, GoogleMark, Icon, type IconName } from './Icon';
 import { color, font, layout, radius, shadow, space, text, HIT } from '@/theme';
 
 /* ────────────────────────────── Layout ────────────────────────────── */
@@ -212,6 +212,60 @@ export function Button({
 }
 
 /** A square icon control — back, close, month step. */
+/**
+ * "Continue with Apple" / "Continue with Google".
+ *
+ * Separate from Button rather than a variant of it because Button draws its
+ * icon through `Icon`, which recolours a stroked path with the theme — and
+ * these two are filled third-party brand marks that may not be restyled. Apple
+ * and Google both publish rules about their mark's colour, clear space and
+ * wording, so the mark comes in as a component rather than as a token name.
+ *
+ * The mark is absolutely positioned so the label stays optically centred in the
+ * button rather than being pushed off-centre by the mark's width — which is how
+ * both vendors' own buttons are laid out.
+ */
+export function SocialButton({
+    provider,
+    label,
+    onPress,
+    disabled = false,
+}: {
+    provider: 'apple' | 'google';
+    label: string;
+    onPress?: () => void;
+    disabled?: boolean;
+}) {
+    const dark = provider === 'apple';
+    const bg = disabled ? color.inactive : dark ? color.ink : color.surface;
+    const fg = disabled ? color.inactiveFg : dark ? color.white : color.ink;
+
+    return (
+        <Pressable
+            onPress={disabled ? undefined : onPress}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            style={({ pressed }) => ({
+                height: 56,
+                borderRadius: radius.cta,
+                backgroundColor: bg,
+                // Apple's mark sits on its own black field and needs no edge;
+                // Google's white button would otherwise vanish into `surface`.
+                borderWidth: dark ? 0 : 1.5,
+                borderColor: color.fieldBorder,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: pressed ? 0.9 : 1,
+            })}
+        >
+            <View style={{ position: 'absolute', left: 18, justifyContent: 'center' }}>
+                {dark ? <AppleMark size={19} tint={fg} /> : <GoogleMark size={18} />}
+            </View>
+            <Text style={[text.cta, { color: fg }]}>{label}</Text>
+        </Pressable>
+    );
+}
+
 export function IconButton({ name, onPress, tint = color.ink }: { name: IconName; onPress?: () => void; tint?: string }) {
     return (
         <Pressable
