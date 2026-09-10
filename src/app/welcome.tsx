@@ -8,6 +8,7 @@ import { Field } from '@/components/Field';
 import { SwirlMark } from '@/components/Icon';
 import { requestCode } from '@/api/auth';
 import { HANDOFF } from '@/theme/handoff';
+import { useMarkLanded } from '@/lib/mark-handoff';
 import { color, font, layout, space, text, HIT } from '@/theme';
 
 /**
@@ -31,6 +32,8 @@ export default function Welcome() {
     const [needsName, setNeedsName] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [sending, setSending] = useState(false);
+    // Hidden until the splash mark finishes flying onto this spot.
+    const landed = useMarkLanded();
 
     const canSend = email.trim().length > 0 && (!needsName || name.trim().length > 0);
 
@@ -85,7 +88,9 @@ export default function Welcome() {
                 />
                 {/* Geometry shared with the splash hand-off — see @/theme/handoff. */}
                 <Gutter style={{ paddingTop: HANDOFF.welcome.markTop, gap: 26, paddingHorizontal: HANDOFF.welcome.gutter }}>
-                    <SwirlMark size={HANDOFF.welcome.markSize} />
+                    <View style={{ opacity: landed ? 1 : 0 }}>
+                        <SwirlMark size={HANDOFF.welcome.markSize} />
+                    </View>
                     <View style={{ gap: 14 }}>
                         <Text style={[text.displayXl, { letterSpacing: -0.4 }]}>
                             Ideas don’t wait for your laptop

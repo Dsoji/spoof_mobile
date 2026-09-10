@@ -29,6 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SwirlMark, Wordmark } from '@/components/Icon';
 import { useSession } from '@/api/useSession';
+import { markLanded } from '@/lib/mark-handoff';
 import { HANDOFF } from '@/theme/handoff';
 import { color, layout, space } from '@/theme';
 
@@ -226,6 +227,10 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
     const mountedAt = useRef(0);
     useEffect(() => {
         mountedAt.current = Date.now();
+        // Backstop: whatever happens to the animation above — interrupted,
+        // never started, unmounted mid-flight — the destination must not be
+        // left holding an invisible mark forever.
+        return markLanded;
     }, []);
 
     useEffect(() => {
@@ -264,8 +269,10 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
 
     const dismiss = useCallback(() => {
         // Motion is unwelcome: the straight fade, with the mark simply
-        // dissolving where it stands.
+        // dissolving where it stands. The destination draws its own from the
+        // start, since there is no flight for it to duplicate.
         if (!flies) {
+            markLanded();
             Animated.timing(veil, {
                 toValue: 0,
                 duration: reduceMotion ? 0 : FADE_MS,
@@ -305,9 +312,11 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
             }),
         ]).start(({ finished }) => {
             if (!finished) return;
-            // Landed on top of welcome's own mark, same size and same place,
-            // so fading this one out reveals an identical one underneath and
-            // the swap cannot be seen.
+            // Arrived. Reveal the destination's own mark FIRST — it is now
+            // exactly underneath this one, same size and same place — and only
+            // then fade this one out over it. Revealing it any earlier is two
+            // logos on screen at once; any later is a gap with none.
+            markLanded();
             Animated.timing(markFade, {
                 toValue: 0,
                 duration: 140,

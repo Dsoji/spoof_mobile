@@ -7,6 +7,7 @@ import { me, posts, STREAK } from '@/data/mock';
 import { Empty, Failed, Loading } from '@/components/ListState';
 import { useNotes } from '@/api/useNotes';
 import { HANDOFF } from '@/theme/handoff';
+import { useMarkLanded } from '@/lib/mark-handoff';
 import { color, font, graphRamp, radius, shadow, space, text } from '@/theme';
 
 /**
@@ -17,6 +18,8 @@ import { color, font, graphRamp, radius, shadow, space, text } from '@/theme';
  */
 export default function Home() {
     const { notes, status: noteStatus, error: noteError, refresh: refreshNotes } = useNotes();
+    // Hidden until the splash mark finishes flying onto this spot.
+    const landed = useMarkLanded();
 
     return (
         <Screen scroll>
@@ -25,7 +28,7 @@ export default function Home() {
                     {/* Where the splash mark lands for a returning user, so its
                         size and offset come from the shared hand-off geometry
                         rather than being chosen here. */}
-                    <View style={{ marginTop: HANDOFF.home.markTop }}>
+                    <View style={{ marginTop: HANDOFF.home.markTop, opacity: landed ? 1 : 0 }}>
                         <SwirlMark size={HANDOFF.home.markSize} />
                     </View>
                     <View style={{ gap: 5, flex: 1 }}>
