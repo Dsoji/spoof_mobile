@@ -7,6 +7,7 @@ import { Button, Divider, Gutter, SocialButton } from '@/components/ui';
 import { Field } from '@/components/Field';
 import { SwirlMark } from '@/components/Icon';
 import { requestCode } from '@/api/auth';
+import { HANDOFF } from '@/theme/handoff';
 import { color, font, layout, space, text, HIT } from '@/theme';
 
 /**
@@ -82,8 +83,9 @@ export default function Welcome() {
                         backgroundColor: color.brandWash,
                     }}
                 />
-                <Gutter style={{ paddingTop: 52, gap: 26, paddingHorizontal: 28 }}>
-                    <SwirlMark />
+                {/* Geometry shared with the splash hand-off — see @/theme/handoff. */}
+                <Gutter style={{ paddingTop: HANDOFF.markTop, gap: 26, paddingHorizontal: HANDOFF.gutter }}>
+                    <SwirlMark size={HANDOFF.markSize} />
                     <View style={{ gap: 14 }}>
                         <Text style={[text.displayXl, { letterSpacing: -0.4 }]}>
                             Ideas don’t wait for your laptop

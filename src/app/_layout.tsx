@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { Splash } from '@/components/Splash';
-import { useSession } from '@/api/useSession';
+import { useSession, type SessionStatus } from '@/api/useSession';
 import { color, fontAssets } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -27,7 +27,7 @@ const AUTH_ROUTES = new Set(['welcome', 'verify']);
  * there is one rule in one place; navigating from here is only safe because
  * the Stack below is already mounted by the time an effect fires.
  */
-function useSessionRoute() {
+function useSessionRoute(): SessionStatus {
     const status = useSession();
     const segments = useSegments();
     const router = useRouter();
@@ -49,13 +49,15 @@ function useSessionRoute() {
             router.replace('/(tabs)');
         }
     }, [status, segments, router]);
+
+    return status;
 }
 
 export default function RootLayout() {
     const [loaded] = useFonts(fontAssets);
     const [splashDone, setSplashDone] = useState(false);
 
-    useSessionRoute();
+    const session = useSessionRoute();
 
     useEffect(() => {
         // Holding the native splash until the faces land avoids a frame of
@@ -85,8 +87,14 @@ export default function RootLayout() {
                 />
             </Stack>
             {/* Rendered over the navigator rather than as a route, so the first
-                screen is already mounted and settled behind it when it lifts. */}
-            {!splashDone && <Splash ready={loaded} onDone={onSplashDone} />}
+                screen is already mounted and settled behind it when it lifts —
+                which is also what lets the mark hand off onto welcome's own.
+                `ready` waits on the session as well as the fonts: the splash
+                flies its mark only when welcome is next, and it cannot know
+                that while the keychain read is still in flight. */}
+            {!splashDone && (
+                <Splash ready={loaded && session !== 'loading'} onDone={onSplashDone} />
+            )}
         </SafeAreaProvider>
     );
 }

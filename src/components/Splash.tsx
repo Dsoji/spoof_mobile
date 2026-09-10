@@ -25,8 +25,12 @@ import {
 } from 'react-native';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { SwirlMark, Wordmark } from '@/components/Icon';
-import { color, space } from '@/theme';
+import { useSession } from '@/api/useSession';
+import { HANDOFF } from '@/theme/handoff';
+import { color, layout, space } from '@/theme';
 
 /** Must equal `imageWidth` in the `expo-splash-screen` config. */
 const MARK = 180;
@@ -36,8 +40,15 @@ const EASE = Easing.bezier(0.2, 0.7, 0.2, 1);
 
 const SPIN_MS = 1100;
 const FADE_MS = 320;
-/** Long enough for the spin to read as deliberate rather than as a stutter. */
-const MIN_VISIBLE_MS = SPIN_MS - 200;
+/** The mark's flight onto the welcome screen. */
+const FLY_MS = 620;
+/** Mount to hand-off complete. */
+const SPLASH_MS = 2500;
+/**
+ * How long the mark holds before it leaves. The flight is part of the 2.5s,
+ * not added to it, so the budget is what the user actually waits.
+ */
+const MIN_VISIBLE_MS = SPLASH_MS - FLY_MS;
 
 
 /**
@@ -172,8 +183,41 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
     const spin = useMemo(() => new Animated.Value(0), []);
     const name = useMemo(() => new Animated.Value(0), []);
     const veil = useMemo(() => new Animated.Value(1), []);
+    /** 0 → 1 across the flight. */
+    const fly = useMemo(() => new Animated.Value(0), []);
+    /** The cream ground and its smoke, faded independently of the mark. */
+    const ground = useMemo(() => new Animated.Value(1), []);
+    const wordExit = useMemo(() => new Animated.Value(1), []);
+    const markFade = useMemo(() => new Animated.Value(1), []);
+
+    const insets = useSafeAreaInsets();
+    const { width, height } = useWindowDimensions();
+    const session = useSession();
 
     const [reduceMotion, setReduceMotion] = useState(false);
+
+    /**
+     * Where the mark is going.
+     *
+     * Only the welcome screen has a mark to land on. A returning user goes
+     * straight to the tabs, which has none, so for them there is nothing to
+     * fly to and the splash simply fades — flying the mark to an empty corner
+     * would be worse than not flying it at all.
+     */
+    const flies = session === 'signedOut' && !reduceMotion;
+
+    const target = useMemo(() => {
+        // Welcome centres nothing: its mark is the first item in a
+        // left-aligned column, under the scroll view's safe-area padding.
+        const cx = HANDOFF.gutter + HANDOFF.markSize / 2;
+        const cy = insets.top + layout.headerTop + HANDOFF.markTop + HANDOFF.markSize / 2;
+        return {
+            dx: cx - width / 2,
+            dy: cy - height / 2,
+            scale: HANDOFF.markSize / MARK,
+        };
+    }, [insets.top, width, height]);
+
 
     // Stamped in an effect rather than as useRef(Date.now()): reading the clock
     // during render is impure, and a re-render before mount would move the
@@ -219,15 +263,60 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
     }, [reduceMotion, spin, name]);
 
     const dismiss = useCallback(() => {
-        Animated.timing(veil, {
-            toValue: 0,
-            duration: reduceMotion ? 0 : FADE_MS,
-            easing: EASE,
-            useNativeDriver: true,
-        }).start(({ finished }) => {
-            if (finished) onDone();
+        // No mark waiting on the other side, or motion is unwelcome: the
+        // original straight fade.
+        if (!flies) {
+            Animated.timing(veil, {
+                toValue: 0,
+                duration: reduceMotion ? 0 : FADE_MS,
+                easing: EASE,
+                useNativeDriver: true,
+            }).start(({ finished }) => {
+                if (finished) onDone();
+            });
+            return;
+        }
+
+        Animated.parallel([
+            Animated.timing(fly, {
+                toValue: 1,
+                duration: FLY_MS,
+                easing: EASE,
+                useNativeDriver: true,
+            }),
+            // The wordmark goes first and quickly — it has no counterpart on
+            // welcome, so carrying it along would only be a second thing
+            // moving against the one that matters.
+            Animated.timing(wordExit, {
+                toValue: 0,
+                duration: 200,
+                easing: EASE,
+                useNativeDriver: true,
+            }),
+            // The ground clears while the mark is still travelling, so welcome
+            // is already reading underneath by the time the mark arrives —
+            // the screen assembles around the logo rather than after it.
+            Animated.timing(ground, {
+                toValue: 0,
+                duration: 420,
+                delay: 150,
+                easing: EASE,
+                useNativeDriver: true,
+            }),
+        ]).start(({ finished }) => {
+            if (!finished) return;
+            // Landed on top of welcome's own mark, same size and same place,
+            // so fading this one out reveals an identical one underneath and
+            // the swap cannot be seen.
+            Animated.timing(markFade, {
+                toValue: 0,
+                duration: 140,
+                useNativeDriver: true,
+            }).start(({ finished: done }) => {
+                if (done) onDone();
+            });
         });
-    }, [veil, reduceMotion, onDone]);
+    }, [flies, veil, fly, ground, wordExit, markFade, reduceMotion, onDone]);
 
     // Leaving is gated on both the app being ready AND the intro having had
     // time to play. Without the floor, a warm start dismisses on the first
@@ -251,33 +340,62 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
             pointerEvents="none"
-            style={[StyleSheet.absoluteFill, styles.field, { opacity: veil }]}
+            style={[StyleSheet.absoluteFill, { opacity: veil }]}
         >
-            {/* Behind everything, and still for anyone who asked for less
-                motion — the colour stays, the drift stops. */}
-            <Smoke still={reduceMotion} />
-
-            <Animated.View
-                style={{
-                    transform: [
-                        {
-                            rotate: spin.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: ['0deg', '360deg'],
-                            }),
-                        },
-                    ],
-                }}
-            >
-                <SwirlMark size={MARK} />
+            {/* The ground is its own layer so it can clear while the mark is
+                still in flight above it. */}
+            <Animated.View style={[StyleSheet.absoluteFill, styles.field, { opacity: ground }]}>
+                {/* Still for anyone who asked for less motion — the colour
+                    stays, the drift stops. */}
+                <Smoke still={reduceMotion} />
             </Animated.View>
+
+            <View style={[StyleSheet.absoluteFill, styles.centre]}>
+                <Animated.View
+                    style={{
+                        opacity: markFade,
+                        transform: [
+                            // Translate first, then scale: RN composes these in
+                            // order and scales about the element's own centre,
+                            // so the centre lands on the target and the mark
+                            // shrinks around it rather than drifting off it.
+                            {
+                                translateX: fly.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [0, target.dx],
+                                }),
+                            },
+                            {
+                                translateY: fly.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [0, target.dy],
+                                }),
+                            },
+                            {
+                                scale: fly.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [1, target.scale],
+                                }),
+                            },
+                            {
+                                rotate: spin.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: ['0deg', '360deg'],
+                                }),
+                            },
+                        ],
+                    }}
+                >
+                    <SwirlMark size={MARK} />
+                </Animated.View>
+            </View>
 
             {/* Absolute, so the name arriving never nudges the mark off the
                 spot the native splash parked it on. */}
             <View style={styles.nameSlot}>
                 <Animated.View
                     style={{
-                        opacity: name,
+                        opacity: Animated.multiply(name, wordExit),
                         transform: [
                             {
                                 translateY: name.interpolate({
@@ -298,6 +416,8 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
 const styles = StyleSheet.create({
     field: {
         backgroundColor: color.cream,
+    },
+    centre: {
         alignItems: 'center',
         justifyContent: 'center',
     },
