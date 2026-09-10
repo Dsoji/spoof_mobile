@@ -28,10 +28,23 @@ export class ApiError extends Error {
     }
 }
 
-/** Nothing reached the server: airplane mode, dead wifi, wrong API_URL. */
+/**
+ * Nothing reached the server: airplane mode, dead wifi, the studio not
+ * running, or an API_URL the device cannot route to.
+ *
+ * In development the resolved URL is appended, because those causes are
+ * indistinguishable from the user-facing message and the URL separates them at
+ * a glance — `localhost:3000` from a real phone is a routing mistake, a LAN
+ * address that times out is usually the studio simply not being up. Stripped
+ * in release: a shipped build should not show anyone a hostname.
+ */
 export class NetworkError extends Error {
-    constructor(cause: unknown) {
-        super('Could not reach the studio. Check your connection.');
+    constructor(cause: unknown, url?: string) {
+        super(
+            __DEV__ && url
+                ? `Could not reach the studio at ${url}. Is it running?`
+                : 'Could not reach the studio. Check your connection.',
+        );
         this.name = 'NetworkError';
         this.cause = cause;
     }
@@ -58,9 +71,11 @@ export async function request<T>(path: string, options: Options = {}): Promise<T
         throw new ApiError('Not signed in.', 401);
     }
 
+    const url = `${API_BASE}${path}`;
+
     let response: Response;
     try {
-        response = await fetch(`${API_BASE}${path}`, {
+        response = await fetch(url, {
             method,
             signal,
             headers: {
@@ -73,7 +88,7 @@ export async function request<T>(path: string, options: Options = {}): Promise<T
         // Rethrow a cancellation as-is; callers ignore it, and dressing it up as
         // a network failure would flash an error on a screen the user just left.
         if (e instanceof Error && e.name === 'AbortError') throw e;
-        throw new NetworkError(e);
+        throw new NetworkError(e, url);
     }
 
     // 204 and friends have no body to parse.
