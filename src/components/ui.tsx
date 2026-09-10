@@ -8,6 +8,7 @@
 
 import type { ReactElement, ReactNode } from 'react';
 import {
+    ActivityIndicator,
     Pressable,
     ScrollView,
     Text,
@@ -153,6 +154,7 @@ export function Button({
     icon,
     iconSide = 'leading',
     disabled = false,
+    loading = false,
     height = 56,
 }: {
     label: string;
@@ -162,21 +164,24 @@ export function Button({
     /** Trailing for forward motion ("Publish →"); leading for everything else. */
     iconSide?: 'leading' | 'trailing';
     disabled?: boolean;
+    /** Swaps the label for a spinner and blocks presses. */
+    loading?: boolean;
     height?: number;
 }) {
+    const inert = disabled || loading;
     const bg =
-        disabled ? color.inactive
+        inert ? color.inactive
             : variant === 'primary' ? color.brand
                 : variant === 'dark' ? color.ink
                     : color.surface;
     const fg =
-        disabled ? color.inactiveFg
+        inert ? color.inactiveFg
             : variant === 'secondary' ? color.ink
                 : color.white;
 
     return (
         <Pressable
-            onPress={disabled ? undefined : onPress}
+            onPress={inert ? undefined : onPress}
             style={({ pressed }) => [
                 {
                     height,
@@ -190,12 +195,18 @@ export function Button({
                     gap: 9,
                     opacity: pressed ? 0.9 : 1,
                 },
-                variant === 'primary' && !disabled && shadow.cta,
+                variant === 'primary' && !inert && shadow.cta,
             ]}
         >
-            {icon && iconSide === 'leading' ? <Icon name={icon} size={17} tint={fg} /> : null}
-            <Text style={[text.cta, { color: fg }]}>{label}</Text>
-            {icon && iconSide === 'trailing' ? <Icon name={icon} size={17} tint={fg} /> : null}
+            {loading ? (
+                <ActivityIndicator color={fg} />
+            ) : (
+                <>
+                    {icon && iconSide === 'leading' ? <Icon name={icon} size={17} tint={fg} /> : null}
+                    <Text style={[text.cta, { color: fg }]}>{label}</Text>
+                    {icon && iconSide === 'trailing' ? <Icon name={icon} size={17} tint={fg} /> : null}
+                </>
+            )}
         </Pressable>
     );
 }

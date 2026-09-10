@@ -12,11 +12,14 @@ import { getToken } from './session';
 
 export class ApiError extends Error {
     readonly status: number;
+    /** The rest of the error body, for routes that return more than a message. */
+    readonly payload: Record<string, unknown>;
 
-    constructor(message: string, status: number) {
+    constructor(message: string, status: number, payload: Record<string, unknown> = {}) {
         super(message);
         this.name = 'ApiError';
         this.status = status;
+        this.payload = payload;
     }
 
     /** The token is missing, expired, or was revoked — sign in again. */
@@ -39,13 +42,19 @@ type Options = {
     body?: unknown;
     /** Abort in-flight when a screen unmounts mid-request. */
     signal?: AbortSignal;
+    /**
+     * Send without a token. Only the sign-in routes: requesting a code and
+     * exchanging it are how a session begins, so requiring one would be
+     * circular.
+     */
+    anonymous?: boolean;
 };
 
 export async function request<T>(path: string, options: Options = {}): Promise<T> {
-    const { method = 'GET', body, signal } = options;
-    const token = await getToken();
+    const { method = 'GET', body, signal, anonymous = false } = options;
+    const token = anonymous ? null : await getToken();
 
-    if (!token) {
+    if (!anonymous && !token) {
         throw new ApiError('Not signed in.', 401);
     }
 
@@ -55,7 +64,7 @@ export async function request<T>(path: string, options: Options = {}): Promise<T
             method,
             signal,
             headers: {
-                Authorization: `Bearer ${token}`,
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
             },
             body: body === undefined ? undefined : JSON.stringify(body),
@@ -85,8 +94,9 @@ export async function request<T>(path: string, options: Options = {}): Promise<T
     }
 
     if (!response.ok) {
-        const message = (payload as { error?: string } | null)?.error ?? `Request failed (${response.status}).`;
-        throw new ApiError(message, response.status);
+        const bodyObject = (payload ?? {}) as Record<string, unknown>;
+        const message = (bodyObject.error as string | undefined) ?? `Request failed (${response.status}).`;
+        throw new ApiError(message, response.status, bodyObject);
     }
 
     return payload as T;

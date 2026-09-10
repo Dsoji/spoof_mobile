@@ -8,7 +8,7 @@
     "scheme": "spoofkitchen",
     "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/icon.png",
       "bundleIdentifier": "africa.opensaucery.spoofkitchen",
       "supportsTablet": false
     },
@@ -33,7 +33,8 @@
         {
           "backgroundColor": "#fefaf6",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 180,
+          "resizeMode": "contain"
         }
       ],
       "expo-secure-store"

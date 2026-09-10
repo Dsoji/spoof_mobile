@@ -31,6 +31,26 @@ const DEV_TOKEN = __DEV__ ? (process.env.EXPO_PUBLIC_DEV_BEARER_TOKEN ?? null) :
 
 let cached: string | null | undefined;
 
+// Signing in and out has to move the whole app between the auth screens and
+// the tabs, so the token is observable rather than only readable.
+const listeners = new Set<() => void>();
+
+export function subscribeToSession(listener: () => void): () => void {
+    listeners.add(listener);
+    return () => {
+        listeners.delete(listener);
+    };
+}
+
+function notify() {
+    listeners.forEach((l) => l());
+}
+
+/** The token as last read, without touching the keychain. Null until loaded. */
+export function peekToken(): string | null | undefined {
+    return cached;
+}
+
 export async function getToken(): Promise<string | null> {
     if (cached !== undefined) return cached;
 
@@ -50,9 +70,18 @@ export async function getToken(): Promise<string | null> {
 export async function setToken(token: string): Promise<void> {
     cached = token;
     await SecureStore.setItemAsync(KEY, token);
+    notify();
 }
 
 export async function clearToken(): Promise<void> {
     cached = null;
-    await SecureStore.deleteItemAsync(KEY);
+    // Deleting can fail for the same keychain reasons reading can. The cached
+    // null is what actually signs the user out of this session either way, so
+    // a failure here must not leave them stuck on a screen they cannot leave.
+    try {
+        await SecureStore.deleteItemAsync(KEY);
+    } catch {
+        // Intentionally ignored — see above.
+    }
+    notify();
 }
