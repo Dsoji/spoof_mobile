@@ -3,7 +3,7 @@ import { Link, router } from 'expo-router';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, Gutter, SocialButton } from '@/components/ui';
+import { Button, Divider, Gutter, SocialButton } from '@/components/ui';
 import { Field } from '@/components/Field';
 import { SwirlMark } from '@/components/Icon';
 import { requestCode } from '@/api/auth';
@@ -139,8 +139,15 @@ export default function Welcome() {
                         disabled={!canSend}
                         loading={sending}
                     />
-                    <SocialButton provider="apple" label="Continue with Apple" />
-                    <SocialButton provider="google" label="Continue with Google" />
+
+                    <View style={{ paddingVertical: 2 }}>
+                        <Divider label="or" />
+                    </View>
+
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                        <SocialButton provider="apple" label="Continue with Apple" />
+                        <SocialButton provider="google" label="Continue with Google" />
+                    </View>
 
                     <Link href="/verify" asChild>
                         <Pressable

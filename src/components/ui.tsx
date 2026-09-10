@@ -114,8 +114,16 @@ export function Card({
     );
 }
 
-export function Divider() {
-    return <View style={{ height: 1, backgroundColor: color.hairline }} />;
+export function Divider({ label }: { label?: string } = {}) {
+    if (!label) return <View style={{ height: 1, backgroundColor: color.hairline }} />;
+
+    return (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: color.hairline }} />
+            <Text style={[text.micro, { textTransform: 'uppercase', letterSpacing: 1.2 }]}>{label}</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: color.hairline }} />
+        </View>
+    );
 }
 
 /* ────────────────────────────── Text ────────────────────────────── */
@@ -213,17 +221,20 @@ export function Button({
 
 /** A square icon control — back, close, month step. */
 /**
- * "Continue with Apple" / "Continue with Google".
+ * Apple and Google sign-in, as a mark alone.
  *
  * Separate from Button rather than a variant of it because Button draws its
  * icon through `Icon`, which recolours a stroked path with the theme — and
  * these two are filled third-party brand marks that may not be restyled. Apple
- * and Google both publish rules about their mark's colour, clear space and
- * wording, so the mark comes in as a component rather than as a token name.
+ * and Google both publish rules about their mark's colour and clear space, so
+ * the mark comes in as a component rather than as a token name.
  *
- * The mark is absolutely positioned so the label stays optically centred in the
- * button rather than being pushed off-centre by the mark's width — which is how
- * both vendors' own buttons are laid out.
+ * `label` is not drawn. It is the accessible name, and it is not optional:
+ * a button whose only content is an SVG is announced as "button" and nothing
+ * else, which makes the two indistinguishable to a screen reader.
+ *
+ * Fills its parent's width — these are laid out as a row of equal halves under
+ * the primary CTA, so the parent decides the split.
  */
 export function SocialButton({
     provider,
@@ -232,13 +243,14 @@ export function SocialButton({
     disabled = false,
 }: {
     provider: 'apple' | 'google';
+    /** Announced, not drawn. */
     label: string;
     onPress?: () => void;
     disabled?: boolean;
 }) {
     const dark = provider === 'apple';
     const bg = disabled ? color.inactive : dark ? color.ink : color.surface;
-    const fg = disabled ? color.inactiveFg : dark ? color.white : color.ink;
+    const fg = disabled ? color.inactiveFg : color.white;
 
     return (
         <Pressable
@@ -246,6 +258,7 @@ export function SocialButton({
             accessibilityRole="button"
             accessibilityLabel={label}
             style={({ pressed }) => ({
+                flex: 1,
                 height: 56,
                 borderRadius: radius.cta,
                 backgroundColor: bg,
@@ -258,10 +271,7 @@ export function SocialButton({
                 opacity: pressed ? 0.9 : 1,
             })}
         >
-            <View style={{ position: 'absolute', left: 18, justifyContent: 'center' }}>
-                {dark ? <AppleMark size={19} tint={fg} /> : <GoogleMark size={18} />}
-            </View>
-            <Text style={[text.cta, { color: fg }]}>{label}</Text>
+            {dark ? <AppleMark size={22} tint={fg} /> : <GoogleMark size={21} />}
         </Pressable>
     );
 }
