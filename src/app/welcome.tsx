@@ -7,6 +7,7 @@ import { Button, Divider, Gutter, SocialButton } from '@/components/ui';
 import { Field } from '@/components/Field';
 import { SwirlMark } from '@/components/Icon';
 import { requestCode } from '@/api/auth';
+import { toast } from '@/components/Toast';
 import { HANDOFF } from '@/theme/handoff';
 import { useMarkLanded } from '@/lib/mark-handoff';
 import { color, font, layout, space, text, HIT } from '@/theme';
@@ -30,7 +31,6 @@ export default function Welcome() {
     const [email, setEmail] = useState('');
     const [name, setName] = useState('');
     const [needsName, setNeedsName] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [sending, setSending] = useState(false);
     // Hidden until the splash mark finishes flying onto this spot.
     const landed = useMarkLanded();
@@ -40,28 +40,33 @@ export default function Welcome() {
     const onSend = async () => {
         if (!canSend || sending) return;
         setSending(true);
-        setError(null);
 
-        const result = await requestCode(email.trim(), needsName ? name.trim() : undefined);
-        setSending(false);
+        try {
+            const result = await requestCode(email.trim(), needsName ? name.trim() : undefined);
 
-        if (result.ok) {
-            // The email travels as a param rather than in a store: the code
-            // screen is reachable directly, and needs to know which address the
-            // code went to in order to verify or resend it.
-            router.push({
-                pathname: '/verify',
-                params: { email: email.trim(), isNew: result.isNewAccount ? '1' : '0' },
-            });
-            return;
+            if (result.ok) {
+                // The email travels as a param rather than in a store: the code
+                // screen is reachable directly, and needs to know which address
+                // the code went to in order to verify or resend it.
+                router.push({
+                    pathname: '/verify',
+                    params: { email: email.trim(), isNew: result.isNewAccount ? '1' : '0' },
+                });
+                return;
+            }
+
+            if (result.needsName) {
+                setNeedsName(true);
+                return;
+            }
+            toast(result.message);
+        } finally {
+            // In a finally rather than after the await: anything unexpected
+            // escaping leaves the button spinning at a request that is over,
+            // which is worse than the error itself — there is no way back from
+            // it without killing the app.
+            setSending(false);
         }
-
-        if (result.needsName) {
-            setNeedsName(true);
-            setError(null);
-            return;
-        }
-        setError(result.message);
     };
 
     return (
@@ -109,7 +114,6 @@ export default function Welcome() {
                             setEmail(v);
                             // A new address may not be the one the name was for.
                             setNeedsName(false);
-                            setError(null);
                         }}
                         placeholder="you@studio.com"
                         keyboardType="email-address"
@@ -118,7 +122,6 @@ export default function Welcome() {
                         autoCorrect={false}
                         returnKeyType={needsName ? 'next' : 'go'}
                         onSubmitEditing={needsName ? undefined : onSend}
-                        error={error}
                     />
 
                     {needsName ? (

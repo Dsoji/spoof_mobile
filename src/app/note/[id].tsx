@@ -5,6 +5,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 import { Icon } from '@/components/Icon';
 import { Button, Card, Gutter, IconButton, Screen } from '@/components/ui';
 import { Empty, Failed, Loading } from '@/components/ListState';
+import { toast } from '@/components/Toast';
 import { useNotes } from '@/api/useNotes';
 import { jottedLabel, reminderDetail } from '@/api/format';
 import { color, font, space, text, HIT } from '@/theme';
@@ -40,7 +41,7 @@ export default function NoteDetail() {
                         router.back();
                     } catch (e) {
                         setDeleting(false);
-                        Alert.alert('Could not delete', e instanceof Error ? e.message : 'Try again.');
+                        toast(e instanceof Error ? e.message : 'Could not delete that note.');
                     }
                 },
             },

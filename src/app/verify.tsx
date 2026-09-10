@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Gutter, IconButton } from '@/components/ui';
 import { CODE_LENGTH, requestCode, verifyCode } from '@/api/auth';
+import { toast } from '@/components/Toast';
 import { color, font, layout, radius, space, text, HIT } from '@/theme';
 
 /**
@@ -44,7 +45,18 @@ export default function Verify() {
         setVerifying(true);
         setError(null);
 
-        const result = await verifyCode(email, value);
+        let result: { ok: boolean; message?: string };
+        try {
+            result = await verifyCode(email, value);
+        } catch (e) {
+            // Nothing should reach here — verifyCode answers rather than
+            // throws — but a spinning button with no way out is the one
+            // failure mode this screen must not have.
+            setVerifying(false);
+            toast(e instanceof Error ? e.message : 'Could not verify that code.');
+            return;
+        }
+
         if (result.ok) {
             // replace, not push: the code is spent, and back should not return
             // to a screen that can no longer do anything.
@@ -57,6 +69,9 @@ export default function Verify() {
 
         setVerifying(false);
         setCode('');
+        // Inline as well as toast: this one is about the field directly under
+        // it, and the boxes clear themselves, so a message that leaves after
+        // four seconds would take the only explanation of why with it.
         setError(result.message ?? 'That code is invalid or has expired.');
     };
 
@@ -77,9 +92,17 @@ export default function Verify() {
         if (!email || resending) return;
         setResending(true);
         setError(null);
-        const result = await requestCode(email);
-        setResending(false);
-        setResendNote(result.ok ? 'Sent — check your inbox.' : result.message);
+        try {
+            const result = await requestCode(email);
+            if (result.ok) {
+                setResendNote('Sent — check your inbox.');
+                toast('A new code is on its way.', 'success');
+            } else {
+                toast(result.message);
+            }
+        } finally {
+            setResending(false);
+        }
     };
 
     // Reachable directly from "Already have a code?", which does not know the

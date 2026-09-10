@@ -4,6 +4,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 import { Icon } from '@/components/Icon';
 import { Badge, Card, Gutter, ListRow, Screen } from '@/components/ui';
 import { ACTIVITY, me, STATS } from '@/data/mock';
+import { toast } from '@/components/Toast';
 import { clearToken } from '@/api/session';
 import { resetNotes } from '@/api/useNotes';
 import { color, font, graphRamp, HIT, radius, space, text } from '@/theme';
@@ -34,7 +35,7 @@ async function signOut() {
     try {
         await clearToken();
     } catch (e: unknown) {
-        Alert.alert('Could not sign out', e instanceof Error ? e.message : 'Try again.');
+        toast(e instanceof Error ? e.message : 'Could not sign out.');
         return;
     }
     resetNotes();

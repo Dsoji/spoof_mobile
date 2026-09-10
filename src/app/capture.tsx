@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { router } from 'expo-router';
 import {
     ActivityIndicator,
-    Alert,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -14,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/Icon';
 import { Card, Gutter } from '@/components/ui';
+import { toast } from '@/components/Toast';
 import { useNotes } from '@/api/useNotes';
 import { presetToIso } from '@/api/format';
 import { color, font, layout, radius, space, text, HIT } from '@/theme';
@@ -47,7 +47,7 @@ export default function Capture() {
             // just typed because the network blinked is the one unforgivable
             // failure for a capture inbox.
             setSaving(false);
-            Alert.alert('Could not save', e instanceof Error ? e.message : 'Try again.');
+            toast(e instanceof Error ? e.message : 'Could not save that note.');
         }
     };
 

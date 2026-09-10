@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { Splash } from '@/components/Splash';
+import { ToastHost } from '@/components/Toast';
 import { useSession, type SessionStatus } from '@/api/useSession';
 import { color, fontAssets } from '@/theme';
 
@@ -86,6 +87,10 @@ export default function RootLayout() {
                     options={{ presentation: 'transparentModal', animation: 'fade' }}
                 />
             </Stack>
+            {/* Above the navigator, so a message outlives the screen that
+                raised it navigating away. */}
+            <ToastHost />
+
             {/* Rendered over the navigator rather than as a route, so the first
                 screen is already mounted and settled behind it when it lifts —
                 which is also what lets the mark hand off onto welcome's own.

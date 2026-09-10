@@ -1,4 +1,4 @@
-import { ApiError, request } from './client';
+import { ApiError, NetworkError, request } from './client';
 import { clearToken, setToken } from './session';
 
 /**
@@ -35,6 +35,13 @@ export async function requestCode(email: string, name?: string): Promise<Request
         if (e instanceof ApiError) {
             return { ok: false, needsName: e.payload.needsName === true, message: e.message };
         }
+        // A studio that cannot be reached is an ordinary outcome here, not an
+        // exception. Thrown, it escaped every caller's `await` and left their
+        // pending flag set — the button span forever on a failure the user
+        // could see had already happened.
+        if (e instanceof NetworkError) {
+            return { ok: false, needsName: false, message: e.message };
+        }
         throw e;
     }
 }
@@ -56,6 +63,7 @@ export async function verifyCode(email: string, code: string): Promise<{ ok: boo
         return { ok: true };
     } catch (e) {
         if (e instanceof ApiError) return { ok: false, message: e.message };
+        if (e instanceof NetworkError) return { ok: false, message: e.message };
         throw e;
     }
 }
