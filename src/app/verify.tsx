@@ -35,6 +35,7 @@ export default function Verify() {
     const [error, setError] = useState<string | null>(null);
     const [verifying, setVerifying] = useState(false);
     const [resendNote, setResendNote] = useState<string | null>(null);
+    const [resending, setResending] = useState(false);
 
     const complete = code.length === CODE_LENGTH;
 
@@ -69,9 +70,15 @@ export default function Verify() {
     };
 
     const onResend = async () => {
-        if (!email) return;
+        // Guarded as well as disabled: minting is throttled per mailbox, so a
+        // double tap spends two of a small budget and the second one comes
+        // back as "please wait a few minutes" — which reads as the resend
+        // being broken rather than as having worked twice.
+        if (!email || resending) return;
+        setResending(true);
         setError(null);
         const result = await requestCode(email);
+        setResending(false);
         setResendNote(result.ok ? 'Sent — check your inbox.' : result.message);
     };
 
@@ -207,9 +214,9 @@ export default function Verify() {
                         }}
                     >
                         <Text style={[text.meta, { fontSize: 14 }]}>
-                            {resendNote ?? 'Didn’t get it?'}
+                            {resending ? 'Sending a new code…' : (resendNote ?? 'Didn’t get it?')}
                         </Text>
-                        {resendNote ? null : (
+                        {resendNote || resending ? null : (
                             <Pressable style={{ minHeight: HIT, justifyContent: 'center' }} hitSlop={8} onPress={onResend}>
                                 <Text style={text.link}>Resend code</Text>
                             </Pressable>

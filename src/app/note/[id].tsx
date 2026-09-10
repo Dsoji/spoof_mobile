@@ -23,7 +23,9 @@ export default function NoteDetail() {
     const note = notes.find((n) => n.id === id);
 
     const onDelete = () => {
-        if (!note) return;
+        // `deleting` greys the icon, but the guard is what stops a second tap
+        // stacking a second confirm dialog on top of the first.
+        if (!note || deleting) return;
         // Deleting is the one destructive thing on this screen and there is no
         // undo behind it, so it asks first.
         Alert.alert('Delete this note?', 'This cannot be undone.', [
@@ -71,7 +73,11 @@ export default function NoteDetail() {
         >
             <Gutter style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <IconButton name="chevronLeft" onPress={() => router.back()} />
-                <IconButton name="trash" tint={deleting ? color.inactiveFg : color.danger} onPress={onDelete} />
+                <IconButton
+                    name="trash"
+                    tint={deleting ? color.inactiveFg : color.danger}
+                    onPress={deleting ? undefined : onDelete}
+                />
             </Gutter>
 
             <Gutter style={{ paddingTop: 30, gap: 12 }}>
