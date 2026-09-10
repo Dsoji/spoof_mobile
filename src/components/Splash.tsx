@@ -197,27 +197,27 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
     const [reduceMotion, setReduceMotion] = useState(false);
 
     /**
-     * Where the mark is going.
+     * Whether the mark travels, and where to.
      *
-     * Only the welcome screen has a mark to land on. A returning user goes
-     * straight to the tabs, which has none, so for them there is nothing to
-     * fly to and the splash simply fades — flying the mark to an empty corner
-     * would be worse than not flying it at all.
+     * Both destinations have a mark to land on now — welcome leads its hero
+     * with one, home carries a small one beside the greeting — so the only
+     * question is which. That is unknowable while the keychain read is in
+     * flight, which is why `ready` waits on the session as well as the fonts.
      */
-    const flies = session === 'signedOut' && !reduceMotion;
+    const flies = session !== 'loading' && !reduceMotion;
 
     const target = useMemo(() => {
-        // Welcome centres nothing: its mark is the first item in a
-        // left-aligned column, under the scroll view's safe-area padding.
-        const cx = HANDOFF.gutter + HANDOFF.markSize / 2;
-        const cy = insets.top + layout.headerTop + HANDOFF.markTop + HANDOFF.markSize / 2;
+        const rest = session === 'signedIn' ? HANDOFF.home : HANDOFF.welcome;
+        // Neither screen centres its mark: it is the leading item in a
+        // left-aligned row, under the scroll view's safe-area padding.
+        const cx = rest.gutter + rest.markSize / 2;
+        const cy = insets.top + layout.headerTop + rest.markTop + rest.markSize / 2;
         return {
             dx: cx - width / 2,
             dy: cy - height / 2,
-            scale: HANDOFF.markSize / MARK,
+            scale: rest.markSize / MARK,
         };
-    }, [insets.top, width, height]);
-
+    }, [session, insets.top, width, height]);
 
     // Stamped in an effect rather than as useRef(Date.now()): reading the clock
     // during render is impure, and a re-render before mount would move the
@@ -263,8 +263,8 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
     }, [reduceMotion, spin, name]);
 
     const dismiss = useCallback(() => {
-        // No mark waiting on the other side, or motion is unwelcome: the
-        // original straight fade.
+        // Motion is unwelcome: the straight fade, with the mark simply
+        // dissolving where it stands.
         if (!flies) {
             Animated.timing(veil, {
                 toValue: 0,

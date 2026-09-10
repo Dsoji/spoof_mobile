@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
-import { Icon, type IconName } from '@/components/Icon';
+import { Icon, SwirlMark, type IconName } from '@/components/Icon';
 import { Badge, Card, Gutter, Screen, SectionHeader } from '@/components/ui';
 import { me, posts, STREAK } from '@/data/mock';
 import { Empty, Failed, Loading } from '@/components/ListState';
 import { useNotes } from '@/api/useNotes';
+import { HANDOFF } from '@/theme/handoff';
 import { color, font, graphRamp, radius, shadow, space, text } from '@/theme';
 
 /**
@@ -19,10 +20,18 @@ export default function Home() {
 
     return (
         <Screen scroll>
-            <Gutter style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                <View style={{ gap: 5 }}>
-                    <Text style={text.eyebrow}>Thursday, 10 Sep</Text>
-                    <Text style={[text.displayLg, { fontSize: 30, lineHeight: 36 }]}>Evening, {me.name}</Text>
+            <Gutter style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+                <View style={{ flexDirection: 'row', gap: 12, flex: 1 }}>
+                    {/* Where the splash mark lands for a returning user, so its
+                        size and offset come from the shared hand-off geometry
+                        rather than being chosen here. */}
+                    <View style={{ marginTop: HANDOFF.home.markTop }}>
+                        <SwirlMark size={HANDOFF.home.markSize} />
+                    </View>
+                    <View style={{ gap: 5, flex: 1 }}>
+                        <Text style={text.eyebrow}>Thursday, 10 Sep</Text>
+                        <Text style={[text.displayLg, { fontSize: 30, lineHeight: 36 }]}>Evening, {me.name}</Text>
+                    </View>
                 </View>
                 <Avatar />
             </Gutter>

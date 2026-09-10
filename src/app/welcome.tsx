@@ -84,8 +84,8 @@ export default function Welcome() {
                     }}
                 />
                 {/* Geometry shared with the splash hand-off — see @/theme/handoff. */}
-                <Gutter style={{ paddingTop: HANDOFF.markTop, gap: 26, paddingHorizontal: HANDOFF.gutter }}>
-                    <SwirlMark size={HANDOFF.markSize} />
+                <Gutter style={{ paddingTop: HANDOFF.welcome.markTop, gap: 26, paddingHorizontal: HANDOFF.welcome.gutter }}>
+                    <SwirlMark size={HANDOFF.welcome.markSize} />
                     <View style={{ gap: 14 }}>
                         <Text style={[text.displayXl, { letterSpacing: -0.4 }]}>
                             Ideas don’t wait for your laptop
