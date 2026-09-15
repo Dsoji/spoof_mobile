@@ -65,15 +65,23 @@ rewrite button, onboarding answers, and Apple/Google sign-in.
 **Both migrations must be applied** before notes or publishing work against a
 database. The studio's `.env` points at production, so that is a deliberate step.
 
-Still owed:
+Server side built, app side still owed — both wait on a dev build, because
+neither push tokens nor `react-native-purchases` work in Expo Go:
 
-6. **Push.** No device-token table, no scheduler. Copy the pattern in
-   `src/app/api/cron/reap-channels/route.ts`.
-7. **RevenueCat + `/api/webhooks/revenuecat`.** iOS purchases go through Apple,
-   marked up so the 30% commission still nets the Naira price. Mirror
-   `src/app/api/webhooks/paystack/route.ts`. Both stores write
-   `workspaces.plan`, so there must be a rule for who wins when someone
-   subscribes on both.
+6. **Push.** The studio has `device_push_tokens`, `POST`/`DELETE
+   /api/v1/devices`, and `/api/cron/send-reminders` (needs
+   `migrations/20260915_push_reminders.sql` and a crontab entry). The app needs
+   `eas init`, `expo-notifications`, a token registered on sign-in, and
+   `DELETE /api/v1/devices` called **before** dropping the bearer token on
+   sign-out — afterwards the request cannot prove whose device it is.
+7. **RevenueCat.** The studio has `/api/webhooks/revenuecat` and
+   `GET /api/v1/billing` (needs `migrations/20260915_billing_rails.sql`). The
+   rule: **prevent double-subscribing** — the iOS paywall must check
+   `canPurchaseInApp` before selling, and web checkout refuses a kitchen Apple
+   already bills — and if both rails end up active anyway, the higher plan
+   wins. The app must call `Purchases.logIn(appUserId)` with the `appUserId`
+   that endpoint returns: it is the workspace id, because a plan belongs to a
+   kitchen, not a person.
 
 ## Conventions
 

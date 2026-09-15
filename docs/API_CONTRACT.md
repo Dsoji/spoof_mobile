@@ -8,8 +8,9 @@ Studio repo: `~/Documents/web_projects/content_kitchen`
 ## Status
 
 Built: auth, notes, channels, posts (with the idempotency key), media,
-calendar, activity, plus `/me` and `/workspaces`. Outstanding: push and
-billing.
+calendar, activity, `/me`, `/workspaces`, and the server side of push
+(`/devices`, a reminder cron) and billing (`/billing`, the RevenueCat webhook).
+Outstanding: the app side of push and billing, which needs a dev build.
 
 Where the build differs from the spec below, the build wins:
 
@@ -23,6 +24,10 @@ Where the build differs from the spec below, the build wins:
   `Idempotency-Replayed: true`; a key reused with a different body is a 422.
 - **Auth** `request-code` accepts `{ email, name? }` and creates the account
   when the address is new, answering `needsName: true` if no name was sent.
+- **`GET /api/v1/billing`** returns `canPurchaseInApp` and `appUserId`. The
+  iOS paywall checks the first before selling and passes the second to
+  `Purchases.logIn` — it is the workspace id, since plans are per kitchen.
+- **`POST`/`DELETE /api/v1/devices`** registers and forgets an Expo push token.
 - **`GET /api/v1/workspaces`** lists the user's kitchens. Every other route
   takes the chosen one as `?workspaceId=`, defaulting to the oldest.
 
