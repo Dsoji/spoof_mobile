@@ -10,13 +10,6 @@ import { useNotes } from '@/api/useNotes';
 import { jottedLabel, reminderDetail } from '@/api/format';
 import { color, font, space, text, HIT } from '@/theme';
 
-/** Suggestions are the existing AI idea/caption generation, reused as the note→post bridge. */
-const ANGLES = [
-    'You’ve been grinding your beans wrong',
-    '5 Lagos cafés worth the traffic',
-    'What ₦2,000 of coffee actually buys you',
-];
-
 export default function NoteDetail() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const { notes, status, error, refresh, remove } = useNotes();
@@ -70,7 +63,18 @@ export default function NoteDetail() {
     return (
         <Screen
             scroll
-            footer={<Button label="Turn into a post" icon="sparkle" onPress={() => router.push('/compose')} />}
+            footer={
+                <Button
+                    label="Turn into a post"
+                    icon="sparkle"
+                    onPress={() =>
+                        router.push({
+                            pathname: '/compose',
+                            params: { text: note.text, noteId: note.id, noteCreatedAt: note.createdAt },
+                        })
+                    }
+                />
+            }
         >
             <Gutter style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <IconButton name="chevronLeft" onPress={() => router.back()} />
@@ -125,35 +129,6 @@ export default function NoteDetail() {
                 </Gutter>
             ) : null}
 
-            <Gutter style={{ paddingTop: 26, gap: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Icon name="sparkle" size={14} tint={color.brand} />
-                    <Text style={text.eyebrow}>Three angles to cook</Text>
-                </View>
-                <View style={{ gap: 9 }}>
-                    {ANGLES.map((a) => (
-                        <Pressable key={a} onPress={() => router.push('/compose')}>
-                            <Card padded={0} style={{ borderRadius: 16 }}>
-                                <View
-                                    style={{
-                                        paddingHorizontal: 15,
-                                        paddingVertical: 14,
-                                        flexDirection: 'row',
-                                        alignItems: 'center',
-                                        gap: 11,
-                                        minHeight: HIT,
-                                    }}
-                                >
-                                    <Text style={{ flex: 1, fontFamily: font.semibold, fontSize: 14, lineHeight: 20, color: color.ink }}>
-                                        {a}
-                                    </Text>
-                                    <Icon name="chevronRight" size={17} tint={color.inactiveFg} weight={2.2} />
-                                </View>
-                            </Card>
-                        </Pressable>
-                    ))}
-                </View>
-            </Gutter>
         </Screen>
     );
 }

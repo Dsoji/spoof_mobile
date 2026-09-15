@@ -1,5 +1,6 @@
 import { API_BASE } from './config';
 import { clearToken, getToken } from './session';
+import { getSelectedWorkspaceId, selectWorkspace } from './workspace';
 
 /**
  * The one place a request to the studio is made.
@@ -61,17 +62,32 @@ type Options = {
      * circular.
      */
     anonymous?: boolean;
+    headers?: Record<string, string>;
 };
 
+/**
+ * Routes that are not about one kitchen: signing in, listing the kitchens
+ * themselves, and the activity graph, which is the person's habit across all
+ * of them. Everything else acts on the selected workspace.
+ */
+const UNSCOPED = ['/auth/', '/workspaces', '/activity'];
+
+function withWorkspace(path: string, workspaceId: string | null): string {
+    if (!workspaceId) return path;
+    return `${path}${path.includes('?') ? '&' : '?'}workspaceId=${encodeURIComponent(workspaceId)}`;
+}
+
 export async function request<T>(path: string, options: Options = {}): Promise<T> {
-    const { method = 'GET', body, signal, anonymous = false } = options;
+    const { method = 'GET', body, signal, anonymous = false, headers: extraHeaders } = options;
     const token = anonymous ? null : await getToken();
 
     if (!anonymous && !token) {
         throw new ApiError('Not signed in.', 401);
     }
 
-    const url = `${API_BASE}${path}`;
+    const scoped = !anonymous && !UNSCOPED.some((prefix) => path.startsWith(prefix));
+    const workspaceId = scoped ? await getSelectedWorkspaceId() : null;
+    const url = `${API_BASE}${withWorkspace(path, workspaceId)}`;
 
     let response: Response;
     try {
@@ -81,6 +97,7 @@ export async function request<T>(path: string, options: Options = {}): Promise<T
             headers: {
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+                ...extraHeaders,
             },
             body: body === undefined ? undefined : JSON.stringify(body),
         });
@@ -123,6 +140,13 @@ export async function request<T>(path: string, options: Options = {}): Promise<T
         // mistyped code, which is an ordinary outcome and not a dead session.
         if (response.status === 401 && !anonymous) {
             await clearToken();
+        }
+
+        // The remembered kitchen is gone — the user was removed from it, or it
+        // was deleted. Forget it, so the next request falls back to the default
+        // instead of every screen failing on an id that will never work again.
+        if (response.status === 404 && workspaceId && message === 'Workspace not found.') {
+            await selectWorkspace(null);
         }
 
         throw new ApiError(message, response.status, bodyObject);

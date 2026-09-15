@@ -125,3 +125,16 @@ export function presetToIso(preset: string, now = new Date()): string | null {
             return null;
     }
 }
+
+/** "Thursday, 10 Sep" — the eyebrow above each tab's title. */
+export function todayEyebrow(now = new Date()): string {
+    return `${now.toLocaleString(undefined, { weekday: 'long' })}, ${now.getDate()} ${now.toLocaleString(undefined, { month: 'short' })}`;
+}
+
+/** Morning before noon, afternoon before six, evening after. */
+export function greeting(now = new Date()): string {
+    const h = now.getHours();
+    if (h < 12) return 'Morning';
+    if (h < 18) return 'Afternoon';
+    return 'Evening';
+}

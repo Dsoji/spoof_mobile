@@ -1,10 +1,30 @@
 # API contract
 
-What this app needs from the studio. Nothing here exists yet — this is the
-spec to build against, on both sides.
+What this app needs from the studio.
 
 Studio repo: `~/Documents/web_projects/content_kitchen`
 (`/add-dir` it before starting.)
+
+## Status
+
+Built: auth, notes, channels, posts (with the idempotency key), media,
+calendar, activity, plus `/me` and `/workspaces`. Outstanding: push and
+billing.
+
+Where the build differs from the spec below, the build wins:
+
+- **Calendar** items carry a `startsAt` instant alongside `at`, include a
+  third kind, `idea`, for `ideas.planned_at`, and the response lists any
+  source it could not reach in `unavailable`. The `tz` query parameter decides
+  which day an item falls on — always send it.
+- **Activity** days carry a weighted `score` as well as the raw `count`.
+  Levels are quartiles of the user's own last 90 active days.
+- **Posts** `POST` *requires* `Idempotency-Key`. A replay returns 200 with
+  `Idempotency-Replayed: true`; a key reused with a different body is a 422.
+- **Auth** `request-code` accepts `{ email, name? }` and creates the account
+  when the address is new, answering `needsName: true` if no name was sent.
+- **`GET /api/v1/workspaces`** lists the user's kitchens. Every other route
+  takes the chosen one as `?workspaceId=`, defaulting to the oldest.
 
 ## Shape
 

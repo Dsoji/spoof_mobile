@@ -28,41 +28,45 @@ paths in that repo.
 
 ## Current state
 
-**UI shell.** Every screen is built and navigable, all reading from
-`src/data/mock.ts`. Nothing makes a network call. The fixtures are shaped like
-the real responses, so wiring is a swap, not a rewrite.
+**Wired to the studio.** Every screen that shows data reads it from `/api/v1`
+through `src/api/` — notes, posts, channels, the calendar, activity, the
+signed-in user and the kitchen switcher. `src/data/mock.ts` holds only copy
+that no endpoint serves: the onboarding questions and the price lists.
 
 ```bash
 npm start          # Metro
 npm run ios        # simulator
 npm run typecheck  # tsc + the shadow guard — run before every commit
+npm run lint
 ```
+
+Which studio the app talks to is `EXPO_PUBLIC_API_URL` in `.env.local` — see
+`.env.example`. Restart Metro after changing it; it is inlined at bundle time.
+
+Shared data lives in `src/api/resources.ts`. Each resource is scoped to the
+user or to the selected kitchen, and clears itself on sign-out or a switch —
+do not cache API data in component state.
+
+**Not wired yet:** billing (RevenueCat), push, media upload in compose, the AI
+rewrite button, onboarding answers, and Apple/Google sign-in.
 
 ## What the studio owes this app
 
-`docs/API_CONTRACT.md` is the spec. In dependency order:
+`docs/API_CONTRACT.md` is the spec. Items 1–5 are built, on the studio's
+`mobile/api-v1*` branches:
 
-1. **Bearer auth.** `src/lib/auth.ts` runs Better Auth with `emailOTP`. Add the
-   bearer plugin so the OTP issues a token instead of a cookie. Do NOT build a
-   second auth system — the 6-digit flow is unchanged, only the credential
-   carrier differs.
-2. **`/api/v1/*` route handlers.** The studio's logic lives in Server Actions
-   (`src/app/actions/*.ts`), which only its own React bundle can call. The work
-   is extracting each action's body into a plain `src/lib/services/*` function
-   that takes a `userId`, then having both the action and a route handler call
-   it. Note `src/lib/auth-utils.ts`'s `getOptionalUser` reaches for
-   `next/headers` — services must not.
-3. **`board_items.remind_at`.** A note is a `board_items` row of type `text`,
-   which has no date column, so "remind me" cannot reach the calendar or fire
-   anything. One nullable `TIMESTAMPTZ` plus a partial index.
-4. **Activity logging for notes.** `src/lib/logger.ts`'s `logActivity` is wired
-   into ideas, social, ai, profile, invitations and auth — but **not**
-   `src/app/actions/boards.ts`. So jotting, this app's most common action,
-   contributes nothing to the graph on the You tab. Add `CREATE_BOARD_ITEM` to
-   `LogAction` and `'BOARD'` to `ResourceType`.
-5. **An idempotency key on publish.** Zernio has none. On mobile a request can
-   time out at the client and still succeed at the server, so a second tap
-   double-posts to a real audience.
+1. ~~Bearer auth~~ — Better Auth's bearer plugin, plus `/api/v1/auth/*`.
+2. ~~`/api/v1/*` route handlers~~ — backed by `src/lib/services/*`, which take
+   a `userId` and never read a cookie. The Server Actions delegate to them.
+3. ~~`board_items.remind_at`~~ — `migrations/20260910_board_item_remind_at.sql`.
+4. ~~Activity logging for notes~~ — `CREATE_BOARD_ITEM` / `'BOARD'`.
+5. ~~Idempotency key on publish~~ — `migrations/20260915_api_idempotency_keys.sql`.
+
+**Both migrations must be applied** before notes or publishing work against a
+database. The studio's `.env` points at production, so that is a deliberate step.
+
+Still owed:
+
 6. **Push.** No device-token table, no scheduler. Copy the pattern in
    `src/app/api/cron/reap-channels/route.ts`.
 7. **RevenueCat + `/api/webhooks/revenuecat`.** iOS purchases go through Apple,

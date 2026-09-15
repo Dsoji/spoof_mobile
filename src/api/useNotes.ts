@@ -2,6 +2,7 @@ import { useCallback, useEffect, useSyncExternalStore } from 'react';
 
 import * as api from './notes';
 import { subscribeToSession, peekToken } from './session';
+import { subscribeToWorkspace } from './workspace';
 import type { Note } from './notes';
 
 /**
@@ -85,6 +86,17 @@ export function resetNotes() {
  */
 subscribeToSession(() => {
     if (!peekToken() && state.status !== 'idle') resetNotes();
+});
+
+/**
+ * Notes belong to a kitchen. Switching drops them and, if a screen is showing
+ * them, fetches the new kitchen's — so the list never shows one kitchen's notes
+ * under another's name.
+ */
+subscribeToWorkspace(() => {
+    const wasShowing = state.status !== 'idle';
+    resetNotes();
+    if (wasShowing && peekToken()) void refreshNotes();
 });
 
 export function useNotes() {

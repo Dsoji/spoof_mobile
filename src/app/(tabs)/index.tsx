@@ -3,12 +3,16 @@ import { Pressable, Text, View } from 'react-native';
 
 import { Icon, SwirlMark, type IconName } from '@/components/Icon';
 import { Badge, Card, Gutter, Screen, SectionHeader } from '@/components/ui';
-import { me, posts, STREAK } from '@/data/mock';
 import { Empty, Failed, Loading } from '@/components/ListState';
 import { useNotes } from '@/api/useNotes';
+import { useActivity, useMe, useRecentPosts } from '@/api/resources';
+import { firstName, initialOf } from '@/api/me';
+import { platformLabel } from '@/api/channels';
+import { postSortKey, postWhenLabel } from '@/api/posts';
+import { greeting, todayEyebrow } from '@/api/format';
 import { HANDOFF } from '@/theme/handoff';
 import { useMarkLanded } from '@/lib/mark-handoff';
-import { color, font, graphRamp, radius, shadow, space, text } from '@/theme';
+import { color, font, graphRamp, radius, shadow, text } from '@/theme';
 
 /**
  * Home — streak, quick actions, recent notes, recent posts.
@@ -18,8 +22,17 @@ import { color, font, graphRamp, radius, shadow, space, text } from '@/theme';
  */
 export default function Home() {
     const { notes, status: noteStatus, error: noteError, refresh: refreshNotes } = useNotes();
+    const me = useMe();
+    const activity = useActivity();
+    const posts = useRecentPosts();
     // Hidden until the splash mark finishes flying onto this spot.
     const landed = useMarkLanded();
+
+    const name = firstName(me.data);
+    // Fourteen empty squares while loading, rather than no strip: the card keeps
+    // its shape, and nothing jumps when the real days arrive.
+    const strip = activity.data ? activity.data.days.slice(-14).map((d) => d.level) : Array<number>(14).fill(0);
+    const recent = [...(posts.data ?? [])].sort((a, b) => postSortKey(b).localeCompare(postSortKey(a))).slice(0, 2);
 
     return (
         <Screen scroll>
@@ -32,8 +45,11 @@ export default function Home() {
                         <SwirlMark size={HANDOFF.home.markSize} />
                     </View>
                     <View style={{ gap: 5, flex: 1 }}>
-                        <Text style={text.eyebrow}>Thursday, 10 Sep</Text>
-                        <Text style={[text.displayLg, { fontSize: 30, lineHeight: 36 }]}>Evening, {me.name}</Text>
+                        <Text style={text.eyebrow}>{todayEyebrow()}</Text>
+                        <Text numberOfLines={1} style={[text.displayLg, { fontSize: 30, lineHeight: 36 }]}>
+                            {greeting()}
+                            {name ? `, ${name}` : ''}
+                        </Text>
                     </View>
                 </View>
                 <Avatar />
@@ -42,27 +58,37 @@ export default function Home() {
             {/* Streak. A 14-day strip, not the year grid — that lives on You,
                 where there is room for 52 weeks. */}
             <Gutter style={{ paddingTop: 20 }}>
-                <Card padded={0}>
-                    <View style={{ paddingHorizontal: 20, paddingTop: 17, paddingBottom: 18, gap: 15 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-                                <Text style={[text.display, { fontSize: 32, lineHeight: 38 }]}>{STREAK.days}</Text>
-                                <Text style={{ fontFamily: font.extrabold, fontSize: 13, color: color.muted }}>
-                                    day streak
+                <Pressable onPress={() => router.push('/(tabs)/you')}>
+                    <Card padded={0}>
+                        <View style={{ paddingHorizontal: 20, paddingTop: 17, paddingBottom: 18, gap: 15 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                                    <Text style={[text.display, { fontSize: 32, lineHeight: 38 }]}>
+                                        {activity.data ? activity.data.streak : '–'}
+                                    </Text>
+                                    <Text style={{ fontFamily: font.extrabold, fontSize: 13, color: color.muted }}>
+                                        day streak
+                                    </Text>
+                                </View>
+                                <Text style={[text.meta, { fontFamily: font.bold, fontSize: 11.5 }]}>
+                                    {activity.status === 'error'
+                                        ? 'Couldn’t load'
+                                        : activity.data?.streak
+                                          ? 'Keep it warm'
+                                          : 'Jot something to start'}
                                 </Text>
                             </View>
-                            <Text style={[text.meta, { fontFamily: font.bold, fontSize: 11.5 }]}>Keep it warm</Text>
+                            <View style={{ flexDirection: 'row', gap: 4 }}>
+                                {strip.map((lv, i) => (
+                                    <View
+                                        key={i}
+                                        style={{ flex: 1, aspectRatio: 1, borderRadius: 4, backgroundColor: graphRamp[lv] }}
+                                    />
+                                ))}
+                            </View>
                         </View>
-                        <View style={{ flexDirection: 'row', gap: 4 }}>
-                            {STREAK.strip.map((lv, i) => (
-                                <View
-                                    key={i}
-                                    style={{ flex: 1, aspectRatio: 1, borderRadius: 4, backgroundColor: graphRamp[lv] }}
-                                />
-                            ))}
-                        </View>
-                    </View>
-                </Card>
+                    </Card>
+                </Pressable>
             </Gutter>
 
             {/* Two actions, because there are exactly two things you create: a note,
@@ -74,7 +100,7 @@ export default function Home() {
             </Gutter>
 
             <Gutter style={{ paddingTop: 24, gap: 11 }}>
-                <SectionHeader label="Recent notes" action="See all" />
+                <SectionHeader label="Recent notes" />
                 <View style={{ gap: 9 }}>
                     {noteStatus === 'loading' ? <Loading label="Fetching your notes…" /> : null}
                     {noteStatus === 'error' ? <Failed message={noteError} onRetry={refreshNotes} /> : null}
@@ -108,57 +134,63 @@ export default function Home() {
             </Gutter>
 
             <Gutter style={{ paddingTop: 22, gap: 11 }}>
-                <SectionHeader label="Recent posts" action="See all" />
+                <SectionHeader label="Recent posts" />
                 <View style={{ gap: 9 }}>
-                    {posts.map((p) => (
-                        <Card key={p.id} padded={0}>
-                            <View
-                                style={{
-                                    minHeight: 64,
-                                    paddingHorizontal: 13,
-                                    paddingVertical: 11,
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 12,
-                                }}
-                            >
+                    {posts.status === 'loading' ? <Loading label="Fetching your posts…" /> : null}
+                    {posts.status === 'error' && !posts.data ? <Failed message={posts.error} onRetry={posts.refresh} /> : null}
+                    {posts.status === 'ready' && recent.length === 0 ? (
+                        <Empty icon="send" title="No posts yet" body="Anything you publish or schedule shows up here." />
+                    ) : null}
+                    {recent.map((p) => {
+                        const scheduled = p.status === 'scheduled';
+                        return (
+                            <Card key={p.id} padded={0}>
                                 <View
                                     style={{
-                                        width: 42,
-                                        height: 42,
-                                        borderRadius: radius.field,
-                                        backgroundColor: p.status === 'scheduled' ? color.brandTint : color.field,
-                                        borderWidth: p.status === 'scheduled' ? 0 : 1,
-                                        borderColor: color.hairline,
+                                        minHeight: 64,
+                                        paddingHorizontal: 13,
+                                        paddingVertical: 11,
+                                        flexDirection: 'row',
                                         alignItems: 'center',
-                                        justifyContent: 'center',
+                                        gap: 12,
                                     }}
                                 >
-                                    <Icon
-                                        name="image"
-                                        size={18}
-                                        tint={p.status === 'scheduled' ? color.brand : color.muted}
-                                        weight={1.9}
-                                    />
-                                </View>
-                                <View style={{ flex: 1, gap: 5 }}>
-                                    <Text numberOfLines={1} style={{ fontFamily: font.semibold, fontSize: 13.5, color: color.ink }}>
-                                        {p.caption}
-                                    </Text>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-                                        {p.status === 'scheduled' ? (
-                                            <Badge>{p.whenLabel}</Badge>
-                                        ) : (
-                                            <Badge tone="success">Published</Badge>
-                                        )}
-                                        <Text style={[text.meta, { fontFamily: font.bold, fontSize: 10.5 }]}>
-                                            {p.metaLabel ?? p.platforms.join(' · ')}
+                                    <View
+                                        style={{
+                                            width: 42,
+                                            height: 42,
+                                            borderRadius: radius.field,
+                                            backgroundColor: scheduled ? color.brandTint : color.field,
+                                            borderWidth: scheduled ? 0 : 1,
+                                            borderColor: color.hairline,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                        }}
+                                    >
+                                        <Icon
+                                            name={p.media.length ? 'image' : 'send'}
+                                            size={18}
+                                            tint={scheduled ? color.brand : color.muted}
+                                            weight={1.9}
+                                        />
+                                    </View>
+                                    <View style={{ flex: 1, gap: 5 }}>
+                                        <Text numberOfLines={1} style={{ fontFamily: font.semibold, fontSize: 13.5, color: color.ink }}>
+                                            {p.text || 'Untitled post'}
                                         </Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                                            <Badge tone={p.status === 'published' ? 'success' : scheduled ? 'brand' : 'neutral'}>
+                                                {p.status === 'published' ? 'Published' : postWhenLabel(p)}
+                                            </Badge>
+                                            <Text numberOfLines={1} style={[text.meta, { flex: 1, fontFamily: font.bold, fontSize: 10.5 }]}>
+                                                {p.platforms.map((t) => platformLabel(t.platform)).join(' · ')}
+                                            </Text>
+                                        </View>
                                     </View>
                                 </View>
-                            </View>
-                        </Card>
-                    ))}
+                            </Card>
+                        );
+                    })}
                 </View>
             </Gutter>
         </Screen>
@@ -166,8 +198,12 @@ export default function Home() {
 }
 
 export function Avatar() {
+    const me = useMe();
     return (
-        <View
+        <Pressable
+            onPress={() => router.push('/(tabs)/you')}
+            accessibilityRole="button"
+            accessibilityLabel="Your account"
             style={{
                 width: 44,
                 height: 44,
@@ -179,8 +215,8 @@ export function Avatar() {
                 justifyContent: 'center',
             }}
         >
-            <Text style={{ fontFamily: font.extrabold, fontSize: 13, color: color.brand }}>{me.initial}</Text>
-        </View>
+            <Text style={{ fontFamily: font.extrabold, fontSize: 13, color: color.brand }}>{initialOf(me.data)}</Text>
+        </Pressable>
     );
 }
 
