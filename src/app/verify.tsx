@@ -11,10 +11,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, Gutter, IconButton } from '@/components/ui';
+import { PillButton } from '@/components/ui';
+import { Icon } from '@/components/Icon';
 import { CODE_LENGTH, requestCode, verifyCode } from '@/api/auth';
 import { toast } from '@/components/Toast';
-import { color, font, layout, radius, space, text, HIT } from '@/theme';
+import { color, font, layout, radius, space, text, tone, HIT } from '@/theme';
 
 /**
  * The OTP step.
@@ -110,16 +111,12 @@ export default function Verify() {
     if (!email) {
         return (
             <ScrollView contentContainerStyle={{ paddingTop: insets.top + layout.headerTop }}>
-                <Gutter style={{ paddingHorizontal: space.xxl, gap: 20 }}>
-                    <IconButton name="chevronLeft" onPress={() => router.back()} />
-                    <Text style={[text.displayLg, { fontSize: 32, lineHeight: 38 }]}>
-                        Which address?
-                    </Text>
-                    <Text style={text.bodyLg}>
-                        Enter your email first and we’ll send a fresh code to it.
-                    </Text>
-                    <Button label="Back to sign in" onPress={() => router.replace('/welcome')} />
-                </Gutter>
+                <View style={{ paddingHorizontal: space.xxl, gap: 20 }}>
+                    <BackButton />
+                    <Text style={[text.displayLg, { fontSize: 36, lineHeight: 41 }]}>Which address?</Text>
+                    <Text style={text.bodyLg}>Enter your email first and we’ll send a fresh code to it.</Text>
+                    <PillButton label="Back to sign in" onPress={() => router.replace('/welcome')} />
+                </View>
             </ScrollView>
         );
     }
@@ -134,12 +131,43 @@ export default function Verify() {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
-                <Gutter style={{ paddingHorizontal: space.xxl }}>
-                    <IconButton name="chevronLeft" onPress={() => router.back()} />
+                <View style={{ paddingHorizontal: space.xxl }}>
+                    <BackButton />
 
-                    <View style={{ paddingTop: 34, gap: 12 }}>
-                        <Text style={[text.displayLg, { fontSize: 38, lineHeight: 44 }]}>Check your email</Text>
-                        <Text style={[text.bodyLg, { fontSize: 15.5, lineHeight: 23 }]}>
+                    {/* The envelope, tilted like a note pinned up, with its sticker. */}
+                    <View style={{ paddingTop: 26, alignSelf: 'flex-start' }}>
+                        <View
+                            style={{
+                                width: 108,
+                                height: 108,
+                                borderRadius: 34,
+                                backgroundColor: color.brand,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transform: [{ rotate: '-6deg' }],
+                            }}
+                        >
+                            <Icon name="mail" size={52} tint={color.white} weight={2} />
+                        </View>
+                        <View
+                            style={{
+                                position: 'absolute',
+                                right: -46,
+                                top: 20,
+                                paddingHorizontal: 10,
+                                paddingVertical: 6,
+                                borderRadius: 10,
+                                backgroundColor: color.accent,
+                                transform: [{ rotate: '8deg' }],
+                            }}
+                        >
+                            <Text style={{ fontFamily: font.extrabold, fontSize: 12, color: color.ink }}>{`${CODE_LENGTH} digits`}</Text>
+                        </View>
+                    </View>
+
+                    <View style={{ paddingTop: 22, gap: 10 }}>
+                        <Text style={[text.displayLg, { fontSize: 40, lineHeight: 46 }]}>Check your email</Text>
+                        <Text style={[text.bodyLg, { fontFamily: font.semibold, fontSize: 15.5, lineHeight: 23 }]}>
                             We sent a {CODE_LENGTH}-digit code to{' '}
                             <Text style={{ fontFamily: font.extrabold, color: color.ink }}>{email}</Text>
                         </Text>
@@ -147,36 +175,33 @@ export default function Verify() {
 
                     {/* The real input: full-bleed and invisible, so a tap
                         anywhere on the boxes focuses it. */}
-                    <Pressable onPress={() => input.current?.focus()} style={{ paddingTop: 34 }}>
+                    <Pressable onPress={() => input.current?.focus()} style={{ paddingTop: 28 }}>
                         <View style={{ flexDirection: 'row', gap: 9 }} pointerEvents="none">
                             {Array.from({ length: CODE_LENGTH }).map((_, i) => {
+                                const digit = code[i];
                                 const focused = i === code.length;
                                 return (
                                     <View
                                         key={i}
                                         style={{
                                             flex: 1,
-                                            height: 62,
-                                            borderRadius: radius.cta,
-                                            backgroundColor: focused ? color.brandWash : color.surface,
-                                            borderWidth: 1.5,
-                                            borderColor: error
-                                                ? color.dangerBorder
-                                                : focused
-                                                    ? color.brand
-                                                    : color.fieldBorder,
+                                            height: 64,
+                                            borderRadius: 18,
+                                            // A typed digit becomes a dark tile, tilted like the
+                                            // app's stickers; the next box is ringed in brand.
+                                            backgroundColor: error ? color.dangerBg : digit ? color.ink : color.surface,
+                                            borderWidth: digit && !error ? 0 : focused ? 2 : 1.5,
+                                            borderColor: error ? color.dangerBorder : focused ? color.brand : color.fieldBorder,
                                             alignItems: 'center',
                                             justifyContent: 'center',
+                                            transform: [{ rotate: digit && !error ? (i % 2 ? '2deg' : '-2deg') : '0deg' }],
+                                            boxShadow: focused && !error ? `0 0 0 4px ${color.brandTint}` : undefined,
                                         }}
                                     >
-                                        {code[i] ? (
-                                            <Text
-                                                style={{ fontFamily: font.extrabold, fontSize: 24, color: color.ink }}
-                                            >
-                                                {code[i]}
-                                            </Text>
+                                        {digit ? (
+                                            <Text style={{ fontFamily: font.serif, fontSize: 32, lineHeight: 37, color: error ? color.danger : color.white }}>{digit}</Text>
                                         ) : focused ? (
-                                            <View style={{ width: 2, height: 26, backgroundColor: color.brand }} />
+                                            <View style={{ width: 2, height: 26, borderRadius: 1, backgroundColor: color.brand }} />
                                         ) : null}
                                     </View>
                                 );
@@ -192,12 +217,13 @@ export default function Verify() {
                             autoComplete="one-time-code"
                             maxLength={CODE_LENGTH}
                             editable={!verifying}
+                            accessibilityLabel="Sign-in code"
                             style={{
                                 position: 'absolute',
-                                top: 34,
+                                top: 28,
                                 left: 0,
                                 right: 0,
-                                height: 62,
+                                height: 64,
                                 // Invisible rather than unmounted: it has to stay
                                 // in the tree to hold focus and receive autofill.
                                 opacity: 0,
@@ -206,47 +232,40 @@ export default function Verify() {
                     </Pressable>
 
                     {error ? (
-                        <Text
-                            style={{
-                                paddingTop: 12,
-                                fontFamily: font.semibold,
-                                fontSize: 13,
-                                color: color.danger,
-                            }}
-                        >
-                            {error}
-                        </Text>
-                    ) : null}
+                        <Text style={{ paddingTop: 12, fontFamily: font.bold, fontSize: 13, color: color.danger }}>{error}</Text>
+                    ) : (
+                        <Text style={[text.meta, { paddingTop: 12, color: color.muted }]}>The code pastes straight in from Mail.</Text>
+                    )}
 
-                    <View style={{ paddingTop: 28 }}>
-                        <Button
-                            label="Verify"
-                            disabled={!complete}
-                            loading={verifying}
-                            onPress={() => onVerify()}
-                        />
+                    <View style={{ paddingTop: 26 }}>
+                        <PillButton label="Verify" disabled={!complete} loading={verifying} onPress={() => onVerify()} />
                     </View>
 
-                    <View
-                        style={{
-                            paddingTop: 18,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 8,
-                        }}
-                    >
-                        <Text style={[text.meta, { fontSize: 14 }]}>
-                            {resending ? 'Sending a new code…' : (resendNote ?? 'Didn’t get it?')}
+                    <View style={{ paddingTop: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                        <Text style={[text.meta, { fontSize: 14, color: color.muted }]}>
+                            {resending ? 'Sending a new code…' : (resendNote ?? 'Nothing yet?')}
                         </Text>
                         {resendNote || resending ? null : (
-                            <Pressable style={{ minHeight: HIT, justifyContent: 'center' }} hitSlop={8} onPress={onResend}>
+                            <Pressable style={{ minHeight: HIT, justifyContent: 'center' }} hitSlop={8} onPress={onResend} accessibilityRole="button">
                                 <Text style={text.link}>Resend code</Text>
                             </Pressable>
                         )}
                     </View>
-                </Gutter>
+                </View>
             </ScrollView>
         </KeyboardAvoidingView>
+    );
+}
+
+function BackButton() {
+    return (
+        <Pressable
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/welcome'))}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            style={{ width: HIT, height: HIT, borderRadius: radius.pill, backgroundColor: tone.sand, alignItems: 'center', justifyContent: 'center' }}
+        >
+            <Icon name="chevronLeft" size={18} tint={color.ink} weight={2.6} />
+        </Pressable>
     );
 }

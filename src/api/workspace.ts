@@ -35,14 +35,28 @@ export function peekSelectedWorkspaceId(): string | null | undefined {
     return cached;
 }
 
-export async function getSelectedWorkspaceId(): Promise<string | null> {
-    if (cached !== undefined) return cached;
-    try {
-        cached = await SecureStore.getItemAsync(KEY);
-    } catch {
-        cached = null;
-    }
-    return cached;
+/**
+ * The one keychain read, shared by every caller.
+ *
+ * Its listeners run before any awaiter resumes, so a request that awaited this
+ * cannot be started and then thrown away by the reset that the load's own
+ * notify triggers in every workspace-scoped store.
+ */
+let loading: Promise<string | null> | null = null;
+
+export function getSelectedWorkspaceId(): Promise<string | null> {
+    if (cached !== undefined) return Promise.resolve(cached);
+    loading ??= SecureStore.getItemAsync(KEY)
+        .catch(() => null)
+        .then((stored) => {
+            // A pick made while the read was in flight wins over what was stored.
+            if (cached === undefined) {
+                cached = stored;
+                notify();
+            }
+            return cached ?? null;
+        });
+    return loading;
 }
 
 /** Pick a kitchen, or `null` to fall back to the default. */
@@ -65,7 +79,7 @@ export function useSelectedWorkspaceId(): string | null {
 }
 
 // Load early, so the first request after launch already knows the choice.
-void getSelectedWorkspaceId().then(notify);
+void getSelectedWorkspaceId();
 
 // A remembered kitchen belongs to the account that picked it. Left in place, the
 // next person to sign in on this device would send an id they cannot access.

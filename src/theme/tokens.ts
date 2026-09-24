@@ -50,6 +50,22 @@ export const color = {
 /** Activity heatmap ramp: empty → busiest. Warm empty cell, then tints of brand. */
 export const graphRamp = ['#f1ece5', '#ead9fb', '#c8a4f4', '#9a5cee', '#7c3aed'] as const;
 
+/**
+ * Colour-block fills for cards, stickers and hero decoration. Every value is
+ * one already defined above — these are names for using them as surfaces, not
+ * new colours.
+ */
+export const tone = {
+    /** Warm empty cell — a quiet fill for inactive chips and counts. */
+    sand: graphRamp[0],
+    /** Pale lilac card. */
+    lilac: graphRamp[1],
+    /** Mid lilac card; dark ink text on it. */
+    orchid: graphRamp[2],
+    /** The lighter purple shape layered on the brand hero. */
+    violet: graphRamp[3],
+} as const;
+
 /** Named by role, so call sites say what they mean rather than picking a number. */
 export const radius = {
     field: 13,
@@ -89,6 +105,12 @@ export const shadow = {
     sheet: { boxShadow: '0 -20px 60px -20px rgba(23, 24, 31, 0.35)' },
     /** Selected segment in a segmented control. */
     segment: { boxShadow: '0 2px 6px -3px rgba(23, 24, 31, 0.25)' },
+    /** A tile lifted off a colour block it overlaps — Home's action tiles. */
+    lift: { boxShadow: '0 24px 50px -24px rgba(9, 9, 11, 0.28)' },
+    /** The same lift for a dark tile, which needs more to read. */
+    liftDark: { boxShadow: '0 24px 50px -24px rgba(9, 9, 11, 0.45)' },
+    /** The floating tab bar. */
+    bar: { boxShadow: '0 20px 40px -16px rgba(23, 24, 31, 0.55)' },
 } as const;
 
 /** Recoloured glow with the same geometry as the CTA shadow. */

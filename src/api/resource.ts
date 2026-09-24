@@ -123,6 +123,10 @@ export function createResourceFamily<T>(
             }
             return resource;
         },
+        /** Every member that has been asked for, loaded or not. */
+        members(): Resource<T>[] {
+            return [...cache.values()];
+        },
         /** Refetch every member that has been loaded, after a write that could touch any of them. */
         refreshLoaded() {
             cache.forEach((r) => {

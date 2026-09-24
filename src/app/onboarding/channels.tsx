@@ -3,23 +3,25 @@ import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 
-import { Badge, Button, Card, Gutter, Screen } from '@/components/ui';
+import { PillButton, Screen } from '@/components/ui';
+import { PREP_GUTTER } from '@/components/Prep';
 import { Icon } from '@/components/Icon';
 import { Failed, Loading } from '@/components/ListState';
 import { toast } from '@/components/Toast';
 import { useChannels, meResource } from '@/api/resources';
-import { connectLink, planLabel, PLATFORMS } from '@/api/channels';
-import { color, font, radius, space, text, HIT } from '@/theme';
+import { connectLink, planLabel, platformColor, platformMark, PLATFORMS } from '@/api/channels';
+import { color, font, radius, text, tone, HIT } from '@/theme';
 
 /** Where the OAuth flow returns to. The studio only accepts the app's own scheme. */
 const RETURN_URL = 'spoofkitchen://channels';
 
 /**
- * The hand-off out of onboarding, and the place to connect a channel later.
+ * Connect a channel — reached from compose when there is nothing to post to.
  *
- * Without one connected channel the app cannot post, which is the whole point
- * of it. The plan cap is stated here rather than discovered at the moment of
- * failure.
+ * Not an onboarding step: connecting needs a paid plan, so it waits until the
+ * user wants to post rather than standing between them and the app. It still
+ * lives under /onboarding because that is where compose links to. The plan cap
+ * is stated here rather than discovered at the moment of failure.
  */
 export default function Channels() {
     const channels = useChannels();
@@ -54,35 +56,41 @@ export default function Channels() {
         <Screen
             scroll
             footer={
-                <>
-                    <Button label="Into the kitchen →" onPress={() => router.replace('/(tabs)')} />
-                    <Pressable
-                        onPress={() => router.replace('/(tabs)')}
-                        style={{ minHeight: HIT, alignItems: 'center', justifyContent: 'center' }}
-                    >
-                        <Text style={[text.meta, { fontFamily: font.bold, fontSize: 14 }]}>Skip for now</Text>
-                    </Pressable>
-                </>
+                <PillButton
+                    label="Done"
+                    arrow={false}
+                    onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))}
+                />
             }
         >
-            <Gutter style={{ paddingHorizontal: space.xxl, gap: 12 }}>
-                <Text style={text.display}>Plate it somewhere</Text>
-                <Text style={[text.bodyLg, { fontSize: 15.5, lineHeight: 23 }]}>
-                    Connect at least one channel and you can post straight from your pocket.
-                </Text>
+            <View style={{ paddingHorizontal: PREP_GUTTER }}>
+                <Pressable
+                    onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))}
+                    accessibilityRole="button"
+                    accessibilityLabel="Back"
+                    style={{ width: HIT, height: HIT, borderRadius: HIT / 2, backgroundColor: tone.sand, alignItems: 'center', justifyContent: 'center' }}
+                >
+                    <Icon name="chevronLeft" size={18} tint={color.ink} weight={2.6} />
+                </Pressable>
+                <View style={{ paddingTop: 22, gap: 10 }}>
+                    <Text style={[text.display, { fontSize: 36, lineHeight: 41 }]}>Plate it somewhere</Text>
+                    <Text style={[text.bodyLg, { fontSize: 15, lineHeight: 22 }]}>
+                        Connect a channel and you can post straight from your pocket.
+                    </Text>
+                </View>
                 {data ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 2 }}>
-                        <Badge>{`${planLabel(data.plan)} plan`}</Badge>
-                        <Text style={[text.meta, { fontFamily: font.semibold }]}>
-                            {left === 0
-                                ? 'No slots left — upgrade to connect more'
-                                : `${left} ${left === 1 ? 'slot' : 'slots'} left`}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+                        <View style={{ height: 26, paddingHorizontal: 10, borderRadius: radius.pill, backgroundColor: color.ink, justifyContent: 'center' }}>
+                            <Text style={[text.badge, { fontSize: 11.5, color: color.white }]}>{`${planLabel(data.plan)} plan`}</Text>
+                        </View>
+                        <Text style={[text.meta, { fontFamily: font.bold, fontSize: 12.5, color: left === 0 ? color.danger : color.muted }]}>
+                            {left === 0 ? 'No slots left — upgrade to connect more' : `${left} ${left === 1 ? 'slot' : 'slots'} left`}
                         </Text>
                     </View>
                 ) : null}
-            </Gutter>
+            </View>
 
-            <Gutter style={{ paddingHorizontal: space.xxl, paddingTop: 24, gap: 9 }}>
+            <View style={{ paddingHorizontal: PREP_GUTTER, paddingTop: 20, gap: 10 }}>
                 {channels.status === 'loading' ? <Loading label="Fetching your channels…" /> : null}
                 {channels.status === 'error' && !data ? <Failed message={channels.error} onRetry={channels.refresh} /> : null}
 
@@ -91,98 +99,83 @@ export default function Channels() {
                           const account = data.channels.find((c) => c.platform === p.key);
                           const connected = Boolean(account);
                           const broken = account ? !account.active : false;
+                          // No slot for a new one: say so here, rather than let the
+                          // studio refuse it after a trip through the browser.
+                          const full = !connected && left === 0;
+                          const brand = platformColor(p.key) ?? color.ink;
                           return (
-                              <Card key={p.key} padded={0}>
-                                  <View
-                                      style={{
-                                          minHeight: 68,
-                                          paddingHorizontal: 14,
-                                          paddingVertical: 12,
-                                          flexDirection: 'row',
-                                          alignItems: 'center',
-                                          gap: 13,
-                                      }}
-                                  >
-                                      <View
+                              <View
+                                  key={p.key}
+                                  style={{
+                                      minHeight: 68,
+                                      paddingLeft: 12,
+                                      paddingRight: 10,
+                                      paddingVertical: 10,
+                                      borderRadius: 22,
+                                      backgroundColor: color.surface,
+                                      borderWidth: 1.5,
+                                      borderColor: broken ? color.dangerBorder : connected ? brand : color.hairline,
+                                      flexDirection: 'row',
+                                      alignItems: 'center',
+                                      gap: 12,
+                                      opacity: full ? 0.6 : 1,
+                                  }}
+                              >
+                                  <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: brand, alignItems: 'center', justifyContent: 'center' }}>
+                                      <Text style={{ fontFamily: font.extrabold, fontSize: 15, color: color.white }}>{platformMark(p.key)}</Text>
+                                  </View>
+                                  <View style={{ flex: 1, gap: 2 }}>
+                                      <Text style={{ fontFamily: font.extrabold, fontSize: 15, color: color.ink }}>{p.label}</Text>
+                                      <Text
+                                          numberOfLines={1}
                                           style={{
-                                              width: 42,
-                                              height: 42,
-                                              borderRadius: radius.field,
-                                              backgroundColor: connected ? color.brandTint : color.field,
-                                              borderWidth: 1,
-                                              borderColor: color.hairline,
-                                              alignItems: 'center',
-                                              justifyContent: 'center',
+                                              fontFamily: font.bold,
+                                              fontSize: 12.5,
+                                              color: broken ? color.danger : connected ? color.success : color.muted,
                                           }}
                                       >
-                                          {/* Placeholder monogram — swap for each platform's official mark. */}
-                                          <Text
-                                              style={{
-                                                  fontFamily: font.extrabold,
-                                                  fontSize: 14,
-                                                  color: connected ? color.brand : color.subtle,
-                                              }}
-                                          >
-                                              {p.label.charAt(0)}
-                                          </Text>
-                                      </View>
-                                      <View style={{ flex: 1, gap: 3 }}>
-                                          <Text style={{ fontFamily: font.extrabold, fontSize: 15, color: color.ink }}>{p.label}</Text>
-                                          <Text
-                                              numberOfLines={1}
-                                              style={{
-                                                  fontFamily: font.semibold,
-                                                  fontSize: 12,
-                                                  color: broken ? color.danger : connected ? color.success : color.subtle,
-                                              }}
-                                          >
-                                              {broken
-                                                  ? 'Needs reconnecting'
-                                                  : connected
-                                                    ? account?.handle
-                                                        ? `@${account.handle.replace(/^@/, '')}`
-                                                        : (account?.name ?? 'Connected')
-                                                    : 'Not connected'}
-                                          </Text>
-                                      </View>
-                                      {connected && !broken ? (
-                                          <View
-                                              style={{
-                                                  width: 26,
-                                                  height: 26,
-                                                  borderRadius: 13,
-                                                  backgroundColor: color.successBg,
-                                                  alignItems: 'center',
-                                                  justifyContent: 'center',
-                                              }}
-                                          >
-                                              <Icon name="check" size={14} tint={color.success} weight={3} />
-                                          </View>
-                                      ) : (
-                                          <Pressable
-                                              onPress={() => void onConnect(p.key)}
-                                              disabled={connecting !== null}
-                                              style={{
-                                                  height: HIT,
-                                                  paddingHorizontal: 18,
-                                                  borderRadius: radius.pill,
-                                                  backgroundColor: color.ink,
-                                                  alignItems: 'center',
-                                                  justifyContent: 'center',
-                                                  opacity: connecting && connecting !== p.key ? 0.5 : 1,
-                                              }}
-                                          >
-                                              <Text style={{ fontFamily: font.extrabold, fontSize: 13.5, color: color.cream }}>
-                                                  {connecting === p.key ? 'Opening…' : broken ? 'Reconnect' : 'Connect'}
-                                              </Text>
-                                          </Pressable>
-                                      )}
+                                          {broken
+                                              ? 'Needs reconnecting'
+                                              : connected
+                                                ? account?.handle
+                                                    ? `@${account.handle.replace(/^@/, '')}`
+                                                    : (account?.name ?? 'Connected')
+                                                : full
+                                                  ? 'Upgrade to add'
+                                                  : 'Not connected'}
+                                      </Text>
                                   </View>
-                              </Card>
+                                  {connected && !broken ? (
+                                      <View style={{ height: 36, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: color.successBg, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                                          <Text style={[text.badge, { fontSize: 12, color: color.success }]}>Connected</Text>
+                                      </View>
+                                  ) : (
+                                      <Pressable
+                                          onPress={() => (full ? router.push('/billing') : void onConnect(p.key))}
+                                          disabled={connecting !== null}
+                                          accessibilityRole="button"
+                                          accessibilityLabel={`${full ? 'Upgrade' : broken ? 'Reconnect' : 'Connect'} ${p.label}`}
+                                          style={({ pressed }) => ({
+                                              height: HIT,
+                                              paddingHorizontal: 16,
+                                              borderRadius: radius.pill,
+                                              backgroundColor: broken ? color.danger : color.ink,
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              opacity: connecting && connecting !== p.key ? 0.5 : 1,
+                                              transform: [{ scale: pressed ? 0.95 : 1 }],
+                                          })}
+                                      >
+                                          <Text style={{ fontFamily: font.extrabold, fontSize: 13.5, color: color.white }}>
+                                              {connecting === p.key ? 'Opening…' : full ? 'Upgrade' : broken ? 'Reconnect' : 'Connect'}
+                                          </Text>
+                                      </Pressable>
+                                  )}
+                              </View>
                           );
                       })
                     : null}
-            </Gutter>
+            </View>
         </Screen>
     );
 }

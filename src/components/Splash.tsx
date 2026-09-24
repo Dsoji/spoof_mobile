@@ -20,10 +20,11 @@ import {
     Animated,
     Easing,
     StyleSheet,
+    Text,
     useWindowDimensions,
     View,
 } from 'react-native';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import { setStatusBarStyle } from 'expo-status-bar';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -31,7 +32,7 @@ import { SwirlMark, Wordmark } from '@/components/Icon';
 import { useSession } from '@/api/useSession';
 import { markLanded } from '@/lib/mark-handoff';
 import { HANDOFF } from '@/theme/handoff';
-import { color, layout, space } from '@/theme';
+import { color, font, layout, space, tone } from '@/theme';
 
 /** Must equal `imageWidth` in the `expo-splash-screen` config. */
 const MARK = 180;
@@ -52,128 +53,66 @@ const SPLASH_MS = 2500;
 const MIN_VISIBLE_MS = SPLASH_MS - FLY_MS;
 
 
+
 /**
- * The drifting colour behind the mark.
+ * The purple that blooms out of the mark.
  *
- * Four soft blobs — two brand violet, two accent orange — each a radial
- * gradient fading to fully transparent, scaled well past the screen and drifted
- * on long, mismatched periods so the field never visibly repeats. There is no
- * blur here and none is needed: a radial gradient with a transparent outer stop
- * IS the soft edge, which matters because the app ships no blur dependency and
- * a real blur over a full screen is expensive on every frame.
+ * One brand-coloured disc, sized to the screen's diagonal so at full scale it
+ * covers every corner, scaled up from a dot hidden behind the mark. Then the
+ * two layered shapes from Home's hero drift in, so the ground the mark leaves
+ * is the same ground it lands on.
  *
- * Only `transform` and `opacity` are animated, so the whole field runs on the
- * native driver and never touches the JS thread — the splash is on screen
- * precisely while the JS thread is busy with fonts and the first fetch, so an
- * animation that needed it would stutter exactly when it is visible.
- *
- * The studio's rule is that its `.wash-*` backdrops are "orange or indigo only,
- * never blended". That governs those standalone washes; the landing page's own
- * root gradient runs white→orange→violet, and this is the same kind of surface
- * — a full-bleed ground, not a wash behind a feature visual. Colours are the
- * `brand`, `brandHover` and `accent` tokens, unmodified.
+ * Only `transform` and `opacity` are animated, so it all runs on the native
+ * driver — the splash is on screen precisely while the JS thread is busy with
+ * fonts and the first fetch, so an animation that needed it would stutter
+ * exactly when it is visible.
  */
-function Smoke({ still }: { still: boolean }) {
+function Bloom({ progress, shapes }: { progress: Animated.Value; shapes: Animated.Value }) {
     const { width, height } = useWindowDimensions();
-    // Oversized so a blob's transparent edge is never visible at the bezel.
-    const size = Math.max(width, height) * 1.15;
-
-    const drift = useMemo(() => [0, 1, 2, 3].map(() => new Animated.Value(0)), []);
-    const fade = useMemo(() => new Animated.Value(0), []);
-
-    const blobs = useMemo(
-        () => [
-            { id: 'sm0', tint: color.brand, opacity: 0.5, x: -0.3, y: -0.28, travel: 46, ms: 9000 },
-            { id: 'sm1', tint: color.accent, opacity: 0.42, x: 0.34, y: -0.16, travel: -38, ms: 11000 },
-            { id: 'sm2', tint: color.brandHover, opacity: 0.34, x: 0.26, y: 0.34, travel: 52, ms: 13000 },
-            { id: 'sm3', tint: color.accent, opacity: 0.3, x: -0.3, y: 0.3, travel: -44, ms: 15000 },
-        ],
-        [],
-    );
-
-    useEffect(() => {
-        // Fades in rather than appearing at full strength: the native splash is
-        // a flat cream field, so colour that snaps on at mount would turn an
-        // otherwise invisible handoff into a visible one.
-        Animated.timing(fade, {
-            toValue: 1,
-            duration: still ? 0 : 900,
-            easing: EASE,
-            useNativeDriver: true,
-        }).start();
-
-        if (still) return;
-
-        const loops = drift.map((value, i) =>
-            Animated.loop(
-                Animated.sequence([
-                    Animated.timing(value, {
-                        toValue: 1,
-                        duration: blobs[i].ms,
-                        easing: Easing.inOut(Easing.sin),
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(value, {
-                        toValue: 0,
-                        duration: blobs[i].ms,
-                        easing: Easing.inOut(Easing.sin),
-                        useNativeDriver: true,
-                    }),
-                ]),
-            ),
-        );
-        loops.forEach((l) => l.start());
-        return () => loops.forEach((l) => l.stop());
-    }, [drift, fade, blobs, still]);
+    const d = Math.hypot(width, height) + 40;
+    const rise = (from: number) => ({ translateY: shapes.interpolate({ inputRange: [0, 1], outputRange: [from, 0] }) });
 
     return (
-        <Animated.View style={[StyleSheet.absoluteFill, { opacity: fade }]} pointerEvents="none">
-            {blobs.map((blob, i) => (
-                <Animated.View
-                    key={blob.id}
-                    style={{
-                        position: 'absolute',
-                        width: size,
-                        height: size,
-                        left: width / 2 - size / 2 + width * blob.x,
-                        top: height / 2 - size / 2 + height * blob.y,
-                        transform: [
-                            {
-                                translateX: drift[i].interpolate({
-                                    inputRange: [0, 1],
-                                    outputRange: [0, blob.travel],
-                                }),
-                            },
-                            {
-                                translateY: drift[i].interpolate({
-                                    inputRange: [0, 1],
-                                    // Not equal to travel, so the path is a slow
-                                    // diagonal rather than a visible straight line.
-                                    outputRange: [0, blob.travel * -0.6],
-                                }),
-                            },
-                            {
-                                scale: drift[i].interpolate({
-                                    inputRange: [0, 1],
-                                    outputRange: [1, 1.12],
-                                }),
-                            },
-                        ],
-                    }}
-                >
-                    <Svg width={size} height={size}>
-                        <Defs>
-                            <RadialGradient id={blob.id} cx="50%" cy="50%" r="50%">
-                                <Stop offset="0%" stopColor={blob.tint} stopOpacity={blob.opacity} />
-                                <Stop offset="55%" stopColor={blob.tint} stopOpacity={blob.opacity * 0.35} />
-                                <Stop offset="100%" stopColor={blob.tint} stopOpacity={0} />
-                            </RadialGradient>
-                        </Defs>
-                        <Circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${blob.id})`} />
-                    </Svg>
-                </Animated.View>
-            ))}
-        </Animated.View>
+        <>
+            <Animated.View
+                style={{
+                    position: 'absolute',
+                    width: d,
+                    height: d,
+                    borderRadius: d / 2,
+                    left: width / 2 - d / 2,
+                    top: height / 2 - d / 2,
+                    backgroundColor: color.brand,
+                    transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.01, 1] }) }],
+                }}
+            />
+            <Animated.View
+                style={{
+                    position: 'absolute',
+                    width: 320,
+                    height: 320,
+                    borderRadius: 160,
+                    right: -120,
+                    top: -100,
+                    backgroundColor: color.brandHover,
+                    opacity: shapes,
+                    transform: [rise(-40)],
+                }}
+            />
+            <Animated.View
+                style={{
+                    position: 'absolute',
+                    width: 180,
+                    height: 180,
+                    borderRadius: 90,
+                    left: -70,
+                    bottom: 90,
+                    backgroundColor: tone.violet,
+                    opacity: shapes,
+                    transform: [rise(40)],
+                }}
+            />
+        </>
     );
 }
 
@@ -186,10 +125,13 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
     const veil = useMemo(() => new Animated.Value(1), []);
     /** 0 → 1 across the flight. */
     const fly = useMemo(() => new Animated.Value(0), []);
-    /** The cream ground and its smoke, faded independently of the mark. */
+    /** The ground and its bloom, faded independently of the mark. */
     const ground = useMemo(() => new Animated.Value(1), []);
     const wordExit = useMemo(() => new Animated.Value(1), []);
     const markFade = useMemo(() => new Animated.Value(1), []);
+    /** The purple spreading out from behind the mark, and the hero shapes after it. */
+    const bloom = useMemo(() => new Animated.Value(0), []);
+    const shapes = useMemo(() => new Animated.Value(0), []);
 
     const insets = useSafeAreaInsets();
     const { width, height } = useWindowDimensions();
@@ -206,6 +148,10 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
      * flight, which is why `ready` waits on the session as well as the fonts.
      */
     const flies = session !== 'loading' && !reduceMotion;
+    // The destination's disc padding scaled up to the splash mark, so at the
+    // landing scale the two discs are the same size.
+    const landing = session === 'signedIn' ? HANDOFF.home : HANDOFF.welcome;
+    const discPad = (landing.discPad * MARK) / landing.markSize;
 
     const target = useMemo(() => {
         const rest = session === 'signedIn' ? HANDOFF.home : HANDOFF.welcome;
@@ -227,6 +173,9 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
     const mountedAt = useRef(0);
     useEffect(() => {
         mountedAt.current = Date.now();
+        // White clock and battery on the purple. Both destinations open on a
+        // purple hero and keep them white; each sets them back itself on blur.
+        setStatusBarStyle('light');
         // Backstop: whatever happens to the animation above — interrupted,
         // never started, unmounted mid-flight — the destination must not be
         // left holding an invisible mark forever.
@@ -248,9 +197,27 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
     useEffect(() => {
         if (reduceMotion) {
             name.setValue(1);
+            bloom.setValue(1);
+            shapes.setValue(1);
             return;
         }
         Animated.parallel([
+            // A beat on the native still first, so the purple reads as
+            // coming OUT of the mark rather than replacing the launch image.
+            Animated.timing(bloom, {
+                toValue: 1,
+                duration: 800,
+                delay: 250,
+                easing: EASE,
+                useNativeDriver: true,
+            }),
+            Animated.timing(shapes, {
+                toValue: 1,
+                duration: 700,
+                delay: 700,
+                easing: EASE,
+                useNativeDriver: true,
+            }),
             Animated.timing(spin, {
                 toValue: 1,
                 duration: SPIN_MS,
@@ -265,7 +232,7 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
                 useNativeDriver: true,
             }),
         ]).start();
-    }, [reduceMotion, spin, name]);
+    }, [reduceMotion, spin, name, bloom, shapes]);
 
     const dismiss = useCallback(() => {
         // Motion is unwelcome: the straight fade, with the mark simply
@@ -354,9 +321,9 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
             {/* The ground is its own layer so it can clear while the mark is
                 still in flight above it. */}
             <Animated.View style={[StyleSheet.absoluteFill, styles.field, { opacity: ground }]}>
-                {/* Still for anyone who asked for less motion — the colour
-                    stays, the drift stops. */}
-                <Smoke still={reduceMotion} />
+                {/* For anyone who asked for less motion it is simply there,
+                    full size, from the first frame. */}
+                <Bloom progress={bloom} shapes={shapes} />
             </Animated.View>
 
             <View style={[StyleSheet.absoluteFill, styles.centre]}>
@@ -395,6 +362,21 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
                         ],
                     }}
                 >
+                    {/* The white disc that keeps the indigo arm legible on purple.
+                        Sized so that at the landing scale it is exactly the
+                        destination's own disc. */}
+                    <Animated.View
+                        style={{
+                            position: 'absolute',
+                            left: -discPad,
+                            top: -discPad,
+                            width: MARK + discPad * 2,
+                            height: MARK + discPad * 2,
+                            borderRadius: MARK / 2 + discPad,
+                            backgroundColor: color.white,
+                            opacity: bloom,
+                        }}
+                    />
                     <SwirlMark size={MARK} />
                 </Animated.View>
             </View>
@@ -415,7 +397,12 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
                         ],
                     }}
                 >
-                    <Wordmark size={34} mark={false} />
+                    <View style={{ alignItems: 'center', gap: 14 }}>
+                        <Wordmark size={34} mark={false} tint={color.white} />
+                        <View style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12, backgroundColor: color.ink, transform: [{ rotate: '-4deg' }] }}>
+                            <Text style={{ fontFamily: font.extrabold, fontSize: 13, color: color.accent }}>Jot it · Post it · Keep it hot</Text>
+                        </View>
+                    </View>
                 </Animated.View>
             </View>
         </Animated.View>
@@ -432,10 +419,13 @@ const styles = StyleSheet.create({
     },
     nameSlot: {
         position: 'absolute',
+        left: 0,
+        right: 0,
         // Below the mark's box, measured from the centred mark rather than
         // from the screen edge so it holds on every device height.
         top: '50%',
-        marginTop: MARK / 2 + space.xxl,
+        // Clear of the white disc, whichever destination sized it.
+        marginTop: MARK / 2 + (Math.max(HANDOFF.home.discPad / HANDOFF.home.markSize, HANDOFF.welcome.discPad / HANDOFF.welcome.markSize) * MARK) + space.xl,
         alignItems: 'center',
     },
 });

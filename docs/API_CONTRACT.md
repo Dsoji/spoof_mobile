@@ -195,6 +195,34 @@ webhook.
 subscribes on both rails. There is an existing Solo→Pro double-subscription gap
 that this makes worse.
 
+## Inbox
+
+The Chat tab. Built on the studio's `mobile/inbox` branch, in
+`src/lib/services/inbox.ts` — additive: the web's CommunityTab still uses its
+own Server Actions.
+
+| Method | Path | Body / query |
+| --- | --- | --- |
+| GET | `/api/v1/inbox/conversations` | `?accountId=&cursor=` |
+| GET | `/api/v1/inbox/conversations/:id/messages` | `?accountId=` |
+| POST | `/api/v1/inbox/conversations/:id/messages` | `{ accountId, message }` |
+| GET | `/api/v1/inbox/posts` | `?cursor=` — every post with comments, including ones posted outside the studio |
+| GET | `/api/v1/inbox/posts/:postId/comments` | `?accountId=` |
+| POST | `/api/v1/inbox/posts/:postId/comments` | `{ accountId, message, commentId? }` — no `commentId` comments on the post itself |
+| POST | `/api/v1/inbox/posts/:postId/comments/:commentId/private-reply` | `{ accountId, message }` — Instagram/Facebook, once, within 7 days |
+| POST / DELETE | `…/comments/:commentId/like` | `{ accountId, cid? }` / `{ accountId, likeUri? }` |
+| POST / DELETE | `…/comments/:commentId/hide` | `{ accountId }` |
+
+- **Pro only, enforced server-side** with **402**. The web only hides its tab;
+  its actions never checked the plan.
+- **One entry per platform post.** A post sent to three platforms is three
+  entries with nothing linking them; the app groups them by identical text.
+- Every `accountId` is checked against the workspace (`assertAccountInWorkspace`),
+  or one kitchen could read or post as another's account.
+- A platform's refusal comes back as **422** with its own message, not a 500.
+- `canLike` / `canHide` / `canReply` come from Zernio per comment. Instagram
+  cannot like comments at all; TikTok has no inbox.
+
 ## Client wiring
 
 When these land, replace `src/data/mock.ts` with a thin client in `src/api/`.

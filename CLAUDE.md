@@ -4,9 +4,10 @@ The pocket companion to the Spoof Kitchen studio. Expo SDK 57 · expo-router ·
 React Native 0.86 · TypeScript.
 
 **Scope is deliberately small.** Jot a note → turn it into a post → schedule it
-→ watch the streak. There is no board canvas, no analytics suite, no team
-management, no community inbox. Those stay on the web. If a request would add
-one of them, ask before building it.
+→ watch the streak → answer the replies. There is no board canvas, no analytics
+suite, no team management. Those stay on the web. If a request would add one of
+them, ask before building it. The community inbox (DMs and comments) was asked
+for and lives in the Chat tab — see `docs/API_CONTRACT.md` § Inbox.
 
 ## Where the backend lives
 

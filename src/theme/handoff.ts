@@ -23,6 +23,8 @@ export const HANDOFF = {
         /** Welcome's gutter is wider than the standard one. */
         gutter: 28,
         markTop: 52,
+        /** The white disc behind the mark on welcome's purple hero reaches this far past it on every side. */
+        discPad: 9,
     },
     /**
      * Returning: small, beside the greeting in the home header. Offset to sit
@@ -33,5 +35,7 @@ export const HANDOFF = {
         markSize: 34,
         gutter: space.gutter,
         markTop: 10,
+        /** The white disc behind the mark on the purple hero reaches this far past it on every side. */
+        discPad: 7,
     },
 } as const;

@@ -1,23 +1,19 @@
 import { useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 import { Icon, type IconName } from '@/components/Icon';
 import { Button, Card, Radio } from '@/components/ui';
 import { toast } from '@/components/Toast';
+import { isPast, WhenPicker } from '@/components/WhenPicker';
 import { NetworkError, ApiError } from '@/api/client';
-import { newIdempotencyKey, publishPost } from '@/api/posts';
+import { captionSettings, deletePost, newIdempotencyKey, publishPost } from '@/api/posts';
 import { platformLabel } from '@/api/channels';
-import { refreshAfterPublish } from '@/api/resources';
-import { color, font, radius, scrim, shadow, space, text } from '@/theme';
+import { refreshAfterPublish, replaceCachedPost, useChannels } from '@/api/resources';
+import { color, font, scrim, shadow, space, text } from '@/theme';
 
 type Mode = 'now' | 'schedule' | 'draft';
-
-function isPast(date: Date): boolean {
-    return date.getTime() <= Date.now();
-}
 
 /** Tomorrow at 9:00 — a sensible first guess for "schedule", and always in the future. */
 function defaultSlot(): Date {
@@ -39,26 +35,28 @@ function defaultSlot(): Date {
  */
 export default function Publish() {
     const insets = useSafeAreaInsets();
-    const params = useLocalSearchParams<{ text?: string; platforms?: string }>();
+    const params = useLocalSearchParams<{ text?: string; accountIds?: string; captions?: string; draftId?: string }>();
     const text_ = params.text ?? '';
-    const platforms = (params.platforms ?? '').split(',').filter(Boolean);
+    // Per-platform captions from compose, as JSON — route params are strings.
+    const platformSettings = captionSettings(parseCaptions(params.captions));
+    const accountIds = (params.accountIds ?? '').split(',').filter(Boolean);
+    const channels = useChannels();
+    const platforms = [
+        ...new Set(
+            (channels.data?.channels ?? []).filter((c) => accountIds.includes(c.id)).map((c) => c.platform),
+        ),
+    ];
 
+    // A reopened draft has nothing to be a draft of but itself — saving it
+    // again is compose's job — so the sheet only offers now or later.
     const [mode, setMode] = useState<Mode>('schedule');
     const [when, setWhen] = useState<Date>(defaultSlot);
-    const [picker, setPicker] = useState<'date' | 'time' | null>(null);
     const [sending, setSending] = useState(false);
     const key = useRef(newIdempotencyKey());
 
-    const onPicked = (event: DateTimePickerEvent, value?: Date) => {
-        // Android shows the picker as a dialog that closes itself; iOS renders
-        // it inline and stays put.
-        if (Platform.OS === 'android') setPicker(null);
-        if (event.type === 'set' && value) setWhen(value);
-    };
-
     const submit = async () => {
         if (sending) return;
-        if (platforms.length === 0 || !text_) {
+        if (accountIds.length === 0 || (!text_ && !platformSettings)) {
             toast('Nothing to post — go back and write something.');
             return;
         }
@@ -72,13 +70,28 @@ export default function Publish() {
             await publishPost(
                 {
                     text: text_,
-                    platforms,
+                    accountIds,
                     status: mode === 'now' ? 'published' : mode === 'schedule' ? 'scheduled' : 'draft',
                     scheduledAt: mode === 'schedule' ? when.toISOString() : undefined,
+                    platformSettings,
                 },
                 key.current,
             );
-            refreshAfterPublish();
+            // The post exists now, so the draft it came from is spent. Zernio
+            // cannot turn a draft into a live post in place — PATCH takes only
+            // text and time — so publishing one is create-then-delete. A failed
+            // delete leaves a stale draft behind, which is untidy but harmless;
+            // failing the publish over it would be neither.
+            if (params.draftId) {
+                try {
+                    await deletePost(params.draftId);
+                    replaceCachedPost(params.draftId, null);
+                } catch {
+                    refreshAfterPublish();
+                }
+            } else {
+                refreshAfterPublish();
+            }
             toast(mode === 'now' ? 'Posted.' : mode === 'schedule' ? 'Scheduled.' : 'Draft saved.', 'success');
             router.dismissAll();
         } catch (e) {
@@ -96,9 +109,6 @@ export default function Publish() {
             setSending(false);
         }
     };
-
-    const dayLabel = when.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-    const timeLabel = when.toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' });
 
     return (
         <View style={{ flex: 1, justifyContent: 'flex-end' }}>
@@ -143,37 +153,20 @@ export default function Publish() {
                                     sub="Your queue posts it for you"
                                     selected={mode === 'schedule'}
                                 />
-                                {mode === 'schedule' ? (
-                                    <>
-                                        <View style={{ flexDirection: 'row', gap: 9 }}>
-                                            <Field label={dayLabel} grow active={picker === 'date'} onPress={() => setPicker(picker === 'date' ? null : 'date')} />
-                                            <Field label={timeLabel} active={picker === 'time'} onPress={() => setPicker(picker === 'time' ? null : 'time')} />
-                                        </View>
-                                        {picker ? (
-                                            <DateTimePicker
-                                                value={when}
-                                                mode={picker}
-                                                display={Platform.OS === 'ios' ? (picker === 'date' ? 'inline' : 'spinner') : 'default'}
-                                                minimumDate={picker === 'date' ? new Date() : undefined}
-                                                minuteInterval={5}
-                                                onChange={onPicked}
-                                                accentColor={color.brand}
-                                                themeVariant="light"
-                                            />
-                                        ) : null}
-                                    </>
-                                ) : null}
+                                {mode === 'schedule' ? <WhenPicker value={when} onChange={setWhen} /> : null}
                             </View>
                         </Card>
                     </Pressable>
 
-                    <Option
-                        icon="file"
-                        title="Save as draft"
-                        sub="Park it, finish it later"
-                        selected={mode === 'draft'}
-                        onPress={() => setMode('draft')}
-                    />
+                    {params.draftId ? null : (
+                        <Option
+                            icon="file"
+                            title="Save as draft"
+                            sub="Park it, finish it later"
+                            selected={mode === 'draft'}
+                            onPress={() => setMode('draft')}
+                        />
+                    )}
                 </View>
 
                 <Button
@@ -190,6 +183,17 @@ export default function Publish() {
             </View>
         </View>
     );
+}
+
+function parseCaptions(raw: string | undefined): Record<string, string> {
+    if (!raw) return {};
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return {};
+        return Object.fromEntries(Object.entries(parsed).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
+    } catch {
+        return {};
+    }
 }
 
 const StyleSheetAbsolute = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as const;
@@ -249,27 +253,5 @@ function OptionRow({
             </View>
             <Radio selected={selected} />
         </View>
-    );
-}
-
-function Field({ label, grow, active, onPress }: { label: string; grow?: boolean; active?: boolean; onPress: () => void }) {
-    return (
-        <Pressable
-            onPress={onPress}
-            accessibilityRole="button"
-            style={{
-                flex: grow ? 1 : undefined,
-                width: grow ? undefined : 116,
-                height: 48,
-                borderRadius: radius.cta,
-                backgroundColor: active ? color.brandTint : color.field,
-                borderWidth: 1,
-                borderColor: active ? color.brand : color.fieldBorder,
-                alignItems: 'center',
-                justifyContent: 'center',
-            }}
-        >
-            <Text style={{ fontFamily: font.extrabold, fontSize: 14, color: active ? color.brand : color.ink }}>{label}</Text>
-        </Pressable>
     );
 }

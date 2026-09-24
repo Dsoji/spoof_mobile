@@ -20,7 +20,9 @@ export type Post = {
     media: { type: string; url: string }[];
 };
 
-export async function listPosts(options: { status?: string; page?: number; pageSize?: number } = {}): Promise<Post[]> {
+export type PostStatus = 'scheduled' | 'published' | 'draft' | 'failed';
+
+export async function listPosts(options: { status?: PostStatus; page?: number; pageSize?: number } = {}): Promise<Post[]> {
     const query = new URLSearchParams();
     if (options.status) query.set('status', options.status);
     if (options.page) query.set('page', String(options.page));
@@ -32,10 +34,27 @@ export async function listPosts(options: { status?: string; page?: number; pageS
 
 export type PublishInput = {
     text: string;
-    platforms: string[];
+    /**
+     * Channel ids (Zernio account ids), not platform names. A kitchen can hold
+     * two Instagram accounts, so "instagram" does not say which one — the
+     * studio refuses the request if any id is not connected.
+     */
+    accountIds: string[];
     status: 'published' | 'scheduled' | 'draft';
     scheduledAt?: string;
+    /**
+     * Per-platform overrides, keyed by platform — not account, so two
+     * Instagram accounts share one Instagram caption. A platform without a
+     * `caption` here gets `text`.
+     */
+    platformSettings?: Record<string, { caption?: string }>;
 };
+
+/** Custom captions as the studio wants them, or nothing when every platform uses the main text. */
+export function captionSettings(captions: Record<string, string>): PublishInput['platformSettings'] {
+    const entries = Object.entries(captions).filter(([, c]) => c.trim().length > 0);
+    return entries.length ? Object.fromEntries(entries.map(([p, c]) => [p, { caption: c.trim() }])) : undefined;
+}
 
 /**
  * A fresh idempotency key for one publish ATTEMPT.
@@ -61,6 +80,41 @@ export async function publishPost(input: PublishInput, idempotencyKey: string): 
         headers: { 'Idempotency-Key': idempotencyKey },
     });
     return post;
+}
+
+/**
+ * Edit a draft or a scheduled post — its text, its time, or both.
+ *
+ * No idempotency key: setting the same text twice is the same result, unlike
+ * creating. A published post is refused with a 422 whose message says why.
+ */
+export async function updatePost(id: string, patch: { text?: string; scheduledFor?: string }): Promise<Post | null> {
+    const { post } = await request<{ post: Post | null }>(`/posts/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: patch,
+    });
+    return post;
+}
+
+export async function deletePost(id: string): Promise<void> {
+    await request<{ success: true }>(`/posts/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+/**
+ * One post by id, when no list on screen already holds it.
+ *
+ * The studio has no `GET /posts/:id`, so this pages through the kitchen's posts
+ * until it turns up. It is the fallback for a calendar row or a deep link — a
+ * tap from the posts list never gets here.
+ */
+export async function findPost(id: string, maxPages = 5): Promise<Post | null> {
+    for (let page = 1; page <= maxPages; page++) {
+        const posts = await listPosts({ page, pageSize: 100 });
+        const hit = posts.find((p) => p.id === id);
+        if (hit) return hit;
+        if (posts.length < 100) return null;
+    }
+    return null;
 }
 
 /** When a post goes, or went, out — the one line a list row has room for. */

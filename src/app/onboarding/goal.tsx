@@ -2,77 +2,101 @@ import { useState } from 'react';
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
-import { PrepHeading, Progress } from '@/components/Prep';
-import { Button, Card, Gutter, Radio, Screen } from '@/components/ui';
-import { BackButton } from './niche';
+import { PREP_GUTTER, PrepFooter, PrepHeading, Progress } from '@/components/Prep';
+import { Screen } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { GOALS } from '@/data/mock';
-import { color, font, radius, space, text } from '@/theme';
+import { color, font, shadow, text } from '@/theme';
+
+/** The chosen card's tilt, per position, so the grid does not lean one way. */
+const TILTS = ['-1.5deg', '1.5deg', '1deg', '-1deg'];
 
 export default function Goal() {
     const [picked, setPicked] = useState<string>('consistent');
+    // Two by two. RN has no grid, so rows of two flex children.
+    const rows = [GOALS.slice(0, 2), GOALS.slice(2, 4)];
 
     return (
         <Screen
-            footer={
-                <View style={{ flexDirection: 'row', gap: space.md }}>
-                    <BackButton onPress={() => router.back()} />
-                    <View style={{ flex: 1 }}>
-                        <Button label="Start cooking →" onPress={() => router.push('/onboarding/channels')} />
-                    </View>
-                </View>
-            }
+            scroll
+            footer={<PrepFooter cta="Start cooking" onBack={() => router.back()} onNext={() => router.replace('/(tabs)')} />}
         >
-            <Gutter style={{ paddingHorizontal: space.xxl }}>
-                <Progress step={3} total={4} />
+            <View style={{ paddingHorizontal: PREP_GUTTER }}>
+                <Progress step={2} />
                 <PrepHeading
                     eyebrow="PREP · THE ORDER"
                     title="What are you cooking up first?"
                     sub="Your main goal right now — we’ll put the right tools out front."
                 />
-                <View style={{ paddingTop: 26, gap: space.md }}>
-                    {GOALS.map((g) => {
-                        const on = g.value === picked;
-                        return (
-                            <Pressable key={g.value} onPress={() => setPicked(g.value)}>
-                                <Card selected={on} padded={0} style={on ? { backgroundColor: color.brandWash } : undefined}>
-                                    <View
-                                        style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            gap: 16,
-                                            paddingHorizontal: 17,
-                                            paddingVertical: 15,
-                                        }}
+                <View style={{ paddingTop: 24, gap: 12 }}>
+                    {rows.map((row, r) => (
+                        <View key={r} style={{ flexDirection: 'row', gap: 12 }}>
+                            {row.map((g, c) => {
+                                const on = g.value === picked;
+                                return (
+                                    <Pressable
+                                        key={g.value}
+                                        onPress={() => setPicked(g.value)}
+                                        accessibilityRole="radio"
+                                        accessibilityState={{ selected: on }}
+                                        accessibilityLabel={`${g.title}. ${g.desc}`}
+                                        style={({ pressed }) => [
+                                            {
+                                                flex: 1,
+                                                minHeight: 176,
+                                                padding: 14,
+                                                borderRadius: 24,
+                                                backgroundColor: on ? color.ink : color.surface,
+                                                borderWidth: on ? 0 : 1.5,
+                                                borderColor: color.hairline,
+                                                justifyContent: 'space-between',
+                                                gap: 12,
+                                                transform: [{ rotate: on ? TILTS[r * 2 + c] : '0deg' }, { scale: pressed ? 0.97 : 1 }],
+                                            },
+                                            on && shadow.liftDark,
+                                        ]}
                                     >
-                                        <View
-                                            style={{
-                                                width: 46,
-                                                height: 46,
-                                                borderRadius: radius.field,
-                                                backgroundColor: on ? color.brand : color.brandTint,
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                            }}
-                                        >
-                                            <Icon name={g.icon} size={22} tint={on ? color.white : color.brand} />
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <View
+                                                style={{
+                                                    width: 44,
+                                                    height: 44,
+                                                    borderRadius: 14,
+                                                    backgroundColor: on ? color.accent : color.brandTint,
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                }}
+                                            >
+                                                <Icon name={g.icon} size={22} tint={on ? color.ink : color.brand} weight={2.2} />
+                                            </View>
+                                            <View
+                                                style={{
+                                                    width: 24,
+                                                    height: 24,
+                                                    borderRadius: 12,
+                                                    backgroundColor: on ? color.brand : 'transparent',
+                                                    borderWidth: on ? 0 : 1.5,
+                                                    borderColor: color.chipDotBorder,
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                }}
+                                            >
+                                                {on ? <Icon name="check" size={13} tint={color.white} weight={3.4} /> : null}
+                                            </View>
                                         </View>
-                                        <View style={{ flex: 1, gap: 3 }}>
-                                            <Text style={{ fontFamily: font.bold, fontSize: 16, color: color.ink }}>
-                                                {g.title}
-                                            </Text>
-                                            <Text style={{ fontFamily: font.medium, fontSize: 13.5, lineHeight: 18, color: color.muted }}>
+                                        <View style={{ gap: 4 }}>
+                                            <Text style={{ fontFamily: font.serif, fontSize: 21, lineHeight: 24, color: on ? color.white : color.ink }}>{g.title}</Text>
+                                            <Text style={[text.meta, { fontFamily: font.semibold, fontSize: 12.5, lineHeight: 17, color: on ? color.inactive : color.muted }]}>
                                                 {g.desc}
                                             </Text>
                                         </View>
-                                        <Radio selected={on} />
-                                    </View>
-                                </Card>
-                            </Pressable>
-                        );
-                    })}
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
+                    ))}
                 </View>
-            </Gutter>
+            </View>
         </Screen>
     );
 }

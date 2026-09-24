@@ -27,6 +27,7 @@ const PATHS = {
     check: (p: Common) => <Path {...p} d="M5 12.5l4.5 4.5L19 7" />,
     chevronLeft: (p: Common) => <Path {...p} d="M14.5 5L8 12l6.5 7" />,
     chevronRight: (p: Common) => <Path {...p} d="M9.5 5L16 12l-6.5 7" />,
+    chevronDown: (p: Common) => <Path {...p} d="M5 9.5l7 6.5 7-6.5" />,
 
     clock: (p: Common) => (
         <>
@@ -141,6 +142,30 @@ const PATHS = {
         </>
     ),
     arrowRight: (p: Common) => <Path {...p} d="M5 12h13M12.5 6l6 6-6 6" />,
+    chat: (p: Common) => <Path {...p} d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />,
+    heart: (p: Common) => <Path {...p} d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />,
+    eyeOff: (p: Common) => <Path {...p} d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c5 0 9 4.5 10 7a13 13 0 0 1-3 4.2M6.6 6.6A13 13 0 0 0 2 12c1 2.5 5 7 10 7a9.7 9.7 0 0 0 4.4-1M9.9 9.9a3 3 0 0 0 4.2 4.2" />,
+    mail: (p: Common) => (
+        <>
+            <Rect {...p} x={3} y={5} width={18} height={14} rx={3} />
+            <Path {...p} d="m3.5 7 8.5 6 8.5-6" />
+        </>
+    ),
+    list: (p: Common) => <Path {...p} d="M9 6h11M9 12h11M9 18h11M4 6h.5M4 12h.5M4 18h.5" />,
+    play: (p: Common) => <Path {...p} d="M8 5.5v13l10-6.5z" />,
+    /** Several items — a carousel. */
+    stack: (p: Common) => (
+        <>
+            <Rect {...p} x={7.5} y={7.5} width={12.5} height={12.5} rx={2} />
+            <Path {...p} d="M4 16.5V6a2 2 0 0 1 2-2h10.5" />
+        </>
+    ),
+    flame: (p: Common) => (
+        <Path
+            {...p}
+            d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"
+        />
+    ),
 } as const;
 
 type Common = {

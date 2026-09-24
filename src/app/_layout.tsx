@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Splash } from '@/components/Splash';
 import { ToastHost } from '@/components/Toast';
 import { useSession, type SessionStatus } from '@/api/useSession';
+import { useLaunchSettled } from '@/api/boot';
 import { color, fontAssets } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -59,6 +60,7 @@ export default function RootLayout() {
     const [splashDone, setSplashDone] = useState(false);
 
     const session = useSessionRoute();
+    const launched = useLaunchSettled();
 
     useEffect(() => {
         // Holding the native splash until the faces land avoids a frame of
@@ -96,9 +98,11 @@ export default function RootLayout() {
                 which is also what lets the mark hand off onto welcome's own.
                 `ready` waits on the session as well as the fonts: the splash
                 flies its mark only when welcome is next, and it cannot know
-                that while the keychain read is still in flight. */}
+                that while the keychain read is still in flight. It also waits,
+                briefly, on the launch prime in api/boot.ts, so a returning user's
+                first screen opens with its data rather than spinners. */}
             {!splashDone && (
-                <Splash ready={loaded && session !== 'loading'} onDone={onSplashDone} />
+                <Splash ready={loaded && session !== 'loading' && launched} onDone={onSplashDone} />
             )}
         </SafeAreaProvider>
     );

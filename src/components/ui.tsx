@@ -133,12 +133,14 @@ export function Eyebrow({ children, step = false }: { children: ReactNode; step?
 }
 
 /** A section's label plus its optional "See all". */
-export function SectionHeader({ label, action }: { label: string; action?: string }) {
+export function SectionHeader({ label, action, onPress }: { label: string; action?: string; onPress?: () => void }) {
     return (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Eyebrow>{label}</Eyebrow>
             {action ? (
                 <Pressable
+                    onPress={onPress}
+                    accessibilityRole="link"
                     style={{ minHeight: HIT, justifyContent: 'center', paddingLeft: 14 }}
                     hitSlop={8}
                 >
@@ -236,6 +238,69 @@ export function Button({
  * Fills its parent's width — these are laid out as a row of equal halves under
  * the primary CTA, so the parent decides the split.
  */
+/**
+ * The sign-in and onboarding CTA: a pill with a white arrow disc riding its
+ * trailing edge. A forward step, so the arrow is part of the button's shape
+ * rather than an icon beside the label.
+ */
+export function PillButton({
+    label,
+    onPress,
+    disabled = false,
+    loading = false,
+    arrow = true,
+}: {
+    label: string;
+    onPress?: () => void;
+    disabled?: boolean;
+    loading?: boolean;
+    arrow?: boolean;
+}) {
+    const inert = disabled || loading;
+    return (
+        <Pressable
+            onPress={inert ? undefined : onPress}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            accessibilityState={{ disabled: inert, busy: loading }}
+            style={({ pressed }) => [
+                {
+                    height: 56,
+                    borderRadius: radius.pill,
+                    backgroundColor: disabled ? color.inactive : color.brand,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: arrow ? 'space-between' : 'center',
+                    paddingLeft: arrow ? 24 : 0,
+                    paddingRight: arrow ? 7 : 0,
+                    transform: [{ scale: pressed && !inert ? 0.98 : 1 }],
+                },
+                !disabled && shadow.cta,
+            ]}
+        >
+            <Text style={[text.cta, { color: disabled ? color.inactiveFg : color.white }]}>{label}</Text>
+            {arrow ? (
+                <View
+                    style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: 21,
+                        backgroundColor: disabled ? color.inactiveFg : color.white,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}
+                >
+                    {loading ? (
+                        <ActivityIndicator color={color.brand} />
+                    ) : (
+                        <Icon name="arrowRight" size={18} tint={disabled ? color.inactive : color.brand} weight={2.6} />
+                    )}
+                </View>
+            ) : null}
+        </Pressable>
+    );
+}
+
 export function SocialButton({
     provider,
     label,
@@ -259,8 +324,8 @@ export function SocialButton({
             accessibilityLabel={label}
             style={({ pressed }) => ({
                 flex: 1,
-                height: 56,
-                borderRadius: radius.cta,
+                height: 52,
+                borderRadius: radius.pill,
                 backgroundColor: bg,
                 // Apple's mark sits on its own black field and needs no edge;
                 // Google's white button would otherwise vanish into `surface`.
