@@ -17,6 +17,60 @@ that no endpoint serves.
 **Nothing has been run on a device.** Not one screen, not the publish flow, not
 the splash transition. Everything below is written and type-checked, not seen.
 
+## Next: a posts screen
+
+The biggest hole, and it needs no accounts or credentials — every endpoint is
+built and tested. Right now posts are two rows on Home and nothing else:
+published and scheduled posts are effectively invisible, and a draft can be
+saved but never reopened.
+
+1. New route `src/app/posts.tsx`, reached from Home's "Recent posts" header.
+   `SectionHeader` in `src/components/ui.tsx` renders an action label but takes
+   no `onPress` — add one. I removed the "See all" label rather than leave a
+   link that went nowhere.
+2. Filter by status: `GET /api/v1/posts?status=scheduled|published|draft|failed`
+   (`listPosts` in `src/api/posts.ts` already takes it). Paginated with `page`.
+3. Open a post: text, targets, per-platform status, and the failure reason —
+   `PostDto.platforms[].error` carries it, and nothing surfaces that today.
+4. Manage:
+   - reschedule → `PATCH /api/v1/posts/:id` with `scheduledFor`
+   - edit text → same endpoint with `text`; drafts and scheduled only, Zernio
+     refuses published ones and the 422 says why
+   - delete → `DELETE /api/v1/posts/:id`
+   `src/api/posts.ts` has no client functions for these yet; add `updatePost`
+   and `deletePost` beside `publishPost`. They need **no** idempotency key —
+   setting the same text twice is the same result, unlike creating.
+5. Reopen a draft in `compose.tsx`, which already accepts `text` as a param —
+   it needs a `postId` too, so saving edits an existing draft instead of
+   creating a second one.
+6. Then make the calendar's post rows tappable. They are deliberately
+   `disabled` in `src/app/(tabs)/calendar.tsx:206` only because there was
+   nowhere to go.
+
+Where it lives is a design call: a fifth tab, or a pushed screen off Home.
+CLAUDE.md says the scope is deliberately small, so a pushed screen is the
+safer read — but it is your call.
+
+## Next: editable notes
+
+`PATCH /api/v1/notes/:id` is built, and `useNotes` already exposes `update`.
+Nothing calls it, so a note is fixed once saved.
+
+1. Edit the text in `src/app/note/[id].tsx` — make the body a `TextInput` that
+   saves on blur, or add an edit affordance.
+2. **Wire the reminder's "Change" button.** It is a `Pressable` with no
+   `onPress` (`note/[id].tsx:124`) — the one visibly dead control left in the
+   app. It needs the same date/time picker the publish sheet uses
+   (`@react-native-community/datetimepicker`, already installed), and should
+   also be able to clear the reminder: send `remindAt: null`, which the
+   endpoint distinguishes from omitting the field.
+3. Changing the time re-arms the reminder server-side — `updateNote` resets
+   `reminder_sent_at` — so an edited reminder fires again at the new time.
+   Nothing extra to do in the app.
+4. While in there: the **"Used" filter** on the Notes tab is a no-op that falls
+   through to All, because nothing records which post a note became. Either
+   record that link when a note is turned into a post, or drop the filter.
+
 ## Next: RevenueCat, app side
 
 The studio side is finished — `/api/webhooks/revenuecat`, `GET /api/v1/billing`,
