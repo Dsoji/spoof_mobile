@@ -9,7 +9,8 @@
     "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/images/icon.png",
-      "bundleIdentifier": "africa.opensaucery.spoofkitchen",
+      "bundleIdentifier": "mobile.spoofkitchen.com",
+      "appleTeamId": "LY4RMX6DLQ",
       "supportsTablet": false
     },
     "android": {
@@ -20,7 +21,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "africa.opensaucery.spoofkitchen"
+      "package": "mobile.spoofkitchen.com"
     },
     "web": {
       "output": "static",
