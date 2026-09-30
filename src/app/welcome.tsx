@@ -197,9 +197,17 @@ export default function Welcome() {
 
                     <Divider label="or" />
 
+                    {/*
+                      * Neither provider is wired yet — Better Auth has no Apple
+                      * or Google provider configured, so there is nothing to
+                      * hand a token to. `disabled` is what makes that visible:
+                      * without it these draw at full strength and swallow the
+                      * tap, which reads as the app being broken rather than the
+                      * button being unavailable. Drop it when the providers land.
+                      */}
                     <View style={{ flexDirection: 'row', gap: 10 }}>
-                        <SocialButton provider="apple" label="Continue with Apple" />
-                        <SocialButton provider="google" label="Continue with Google" />
+                        <SocialButton provider="apple" label="Continue with Apple" disabled />
+                        <SocialButton provider="google" label="Continue with Google" disabled />
                     </View>
 
                     <Link href="/verify" asChild>
