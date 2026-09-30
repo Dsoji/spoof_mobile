@@ -94,3 +94,4 @@ The backend this app needs does not exist yet. In rough order:
 Platform marks and the Apple/Google button glyphs are monograms and stand-ins —
 swap in each vendor's official asset before shipping. Apple has specific rules
 on its button's size, radius and label.
+# spoof_mobile
