@@ -24,6 +24,7 @@ export type IconName = keyof typeof PATHS;
 /** Each entry is the inner geometry of a 24×24 `stroke`d icon. */
 const PATHS = {
     plus: (p: Common) => <Path {...p} d="M12 5v14M5 12h14" />,
+    close: (p: Common) => <Path {...p} d="M6 6l12 12M18 6L6 18" />,
     check: (p: Common) => <Path {...p} d="M5 12.5l4.5 4.5L19 7" />,
     chevronLeft: (p: Common) => <Path {...p} d="M14.5 5L8 12l6.5 7" />,
     chevronRight: (p: Common) => <Path {...p} d="M9.5 5L16 12l-6.5 7" />,

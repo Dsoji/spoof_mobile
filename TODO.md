@@ -167,10 +167,14 @@ Studio side is done: `device_push_tokens`, `POST`/`DELETE /api/v1/devices`,
   publishing targets `PostTarget.platform` rather than an account id — so a
   second Instagram account is invisible on the channels screen and a post goes
   to every account on that platform.
-- **Media anywhere.** `POST /api/v1/media` is built; the picker and upload are
-  not. Needs `expo-image-picker`. Neither compose nor the capture sheet offers a
-  media button now — the capture sheet's was removed in `4577dfc` rather than
-  left dead. Both want one back once there is an upload behind it.
+- **Media in compose is built**; what is left around it is smaller. A post with
+  media and an empty caption is still refused, because the caption checks predate
+  attachments and Instagram is the obvious case for it. Video tiles show an icon
+  rather than a poster frame, which needs a thumbnail library the app does not
+  ship. There is no reordering and no delete on Bunny — removing an attachment
+  drops it locally and leaves the file, which costs storage and nothing else.
+  The capture sheet deliberately has no media button: a note is a text row and
+  the API has nowhere to put a file.
 - **AI rewrite** in compose, and the "three angles" on a note, were removed
   rather than left as dead buttons. Both need endpoints that do not exist.
 - **Onboarding answers** (`niche`, `goal`) still go nowhere, on both platforms.

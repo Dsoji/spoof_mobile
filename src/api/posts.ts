@@ -48,6 +48,12 @@ export type PublishInput = {
      * `caption` here gets `text`.
      */
     platformSettings?: Record<string, { caption?: string }>;
+    /**
+     * Uploaded media, in the order it should appear. Each `url` comes back from
+     * POST /api/v1/media — the studio stores a reference, so a file has to be
+     * uploaded before the post that carries it is created.
+     */
+    media?: { url: string; type: 'image' | 'video' | 'gif' }[];
 };
 
 /** Custom captions as the studio wants them, or nothing when every platform uses the main text. */

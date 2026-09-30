@@ -40,6 +40,14 @@
         }
       ],
       "expo-apple-authentication",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Spoof Kitchen uses your photos so you can attach one to a post.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       "expo-secure-store",
       "@react-native-community/datetimepicker",
       "./plugins/with-google-signin-scheme",

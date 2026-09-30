@@ -139,6 +139,25 @@ One call covers all three states.
 `status` is `'published' | 'scheduled' | 'draft'`. Scheduling is not a separate
 endpoint and must never become one.
 
+### Media — wired
+
+`POST /api/v1/media?name=&type=&size=` takes the **raw file as the request
+body** — not multipart, not base64 — and returns `{ url }`, which the post
+carries as `media[{ url, type }]` with `type` one of `image | video | gif`.
+
+The app uploads through `FileSystem.uploadAsync` (`src/api/media.ts`) rather
+than `request()` in `client.ts`: that helper JSON-serialises its body, which
+would mean reading the file into JavaScript first, and a 200 MB video is a crash
+on a phone rather than a slow upload. `uploadAsync` streams from disk natively.
+
+Limits are the web uploader's, because it is one allowance per person however
+the file arrives: **500 MB**, jpeg/png/gif/webp/svg and mp4/mov/webm/avi, 30
+uploads an hour. The app checks size and type before starting, so a doomed
+upload never begins.
+
+Media is uploaded when it is picked, not when the post is sent — the studio
+stores a reference, so the file must exist first.
+
 **Idempotency is required here, not optional.** Zernio has none. Accept an
 `Idempotency-Key` header, store it against the created post, and return the
 existing post on replay. A mobile client on flaky data will retry, and a

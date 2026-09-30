@@ -5,11 +5,13 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { Icon } from '@/components/Icon';
 import { Button, Card, Screen } from '@/components/ui';
 import { Failed, Loading } from '@/components/ListState';
+import { MediaStrip } from '@/components/MediaStrip';
 import { toast } from '@/components/Toast';
 import { useChannels, useMe, refreshAfterPublish, replaceCachedPost } from '@/api/resources';
 import { captionLimit, DEFAULT_CAPTION_LIMIT, platformColor, platformLabel, platformMark, type Channel } from '@/api/channels';
 import { initialOf } from '@/api/me';
 import { NetworkError } from '@/api/client';
+import { pickMedia, uploadMedia, type MediaItem } from '@/api/media';
 import { captionSettings, newIdempotencyKey, publishPost, updatePost } from '@/api/posts';
 import { relativeLabel } from '@/api/format';
 import { color, font, radius, shadow, space, text, tone, HIT } from '@/theme';
@@ -30,8 +32,13 @@ import { color, font, radius, shadow, space, text, tone, HIT } from '@/theme';
  * For the same reason per-platform captions are only offered on a new post:
  * PATCH could not save them.
  *
- * No AI rewrite and no media yet. Neither has a mobile endpoint behind it, and
- * a button that does nothing is worse than no button.
+ * Media is uploaded as it is picked, not when the post is sent: POST
+ * /api/v1/media returns a url and the post carries the reference, so the file
+ * has to be up there first. It also means the wait happens while the caption is
+ * still being written, rather than all at once behind the Publish button.
+ *
+ * No AI rewrite: it has no mobile endpoint behind it, and a button that does
+ * nothing is worse than no button.
  */
 export default function Compose() {
     const params = useLocalSearchParams<{
@@ -54,7 +61,44 @@ export default function Compose() {
     const [tab, setTab] = useState<string | null>(null);
     const [selected, setSelected] = useState<string[] | null>(null);
     const [savingDraft, setSavingDraft] = useState(false);
+    const [media, setMedia] = useState<MediaItem[]>([]);
+    const [uploading, setUploading] = useState(false);
     const draftKey = useRef(newIdempotencyKey());
+
+    /**
+     * Attaching is only offered on a NEW post. The studio's PATCH takes text and
+     * time and nothing else, so media added while editing could not be saved —
+     * the same reason per-platform captions are new-post only.
+     */
+    const canAttach = !params.postId;
+
+    const onAddMedia = async () => {
+        if (uploading) return;
+        const picked = await pickMedia();
+        if (!picked.ok) {
+            if (!picked.cancelled) toast(picked.message);
+            return;
+        }
+        setUploading(true);
+        try {
+            const item = await uploadMedia(picked.asset);
+            setMedia((prev) => [...prev, item]);
+        } catch (e) {
+            toast(e instanceof Error ? e.message : 'Could not upload that file.');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    /**
+     * Dropped locally only. The file stays on Bunny — there is no delete
+     * endpoint, and an orphaned upload costs storage where a failed delete
+     * blocking the post would cost the post.
+     */
+    const onRemoveMedia = (url: string) => setMedia((prev) => prev.filter((m) => m.url !== url));
+
+    /** What the post carries: the urls, without the local thumbnails. */
+    const mediaPayload = media.map(({ url, type }) => ({ url, type }));
 
     const accounts = (channels.data?.channels ?? []).filter((c) => c.active);
     const accountIds = accounts.map((c) => c.id);
@@ -92,7 +136,9 @@ export default function Compose() {
         ? mainFits && tooLong.length === 0 && empty.length === 0
         : caption.trim().length > 0 && mainFits;
     // A scheduled post's accounts are already fixed, so only the text matters.
-    const ready = fits && (editingScheduled || chosen.length > 0);
+    // An upload in flight blocks sending: the post would go out without the
+    // attachment the user is watching upload.
+    const ready = fits && (editingScheduled || chosen.length > 0) && !uploading;
 
     const fieldValue = activeTab ? (captions[activeTab] ?? caption) : caption;
     // With one platform, the main caption IS that platform's, so it counts against its limit.
@@ -133,7 +179,13 @@ export default function Compose() {
         setSavingDraft(true);
         try {
             await publishPost(
-                { text: caption.trim(), accountIds: chosen, status: 'draft', platformSettings: captionSettings(custom) },
+                {
+                    text: caption.trim(),
+                    accountIds: chosen,
+                    status: 'draft',
+                    platformSettings: captionSettings(custom),
+                    ...(mediaPayload.length ? { media: mediaPayload } : {}),
+                },
                 draftKey.current,
             );
             refreshAfterPublish();
@@ -197,6 +249,10 @@ export default function Compose() {
                                             text: caption.trim(),
                                             accountIds: chosen.join(','),
                                             ...(Object.keys(custom).length ? { captions: JSON.stringify(custom) } : {}),
+                                            // Route params are strings, so the
+                                            // attachments travel as JSON — the
+                                            // same shape the studio takes.
+                                            ...(mediaPayload.length ? { media: JSON.stringify(mediaPayload) } : {}),
                                             ...(editingDraft && params.postId ? { draftId: params.postId } : {}),
                                         },
                                     })
@@ -310,6 +366,15 @@ export default function Compose() {
                             minHeight: 130,
                         }}
                     />
+
+                    {canAttach ? (
+                        <MediaStrip
+                            items={media}
+                            uploading={uploading}
+                            onAdd={() => void onAddMedia()}
+                            onRemove={onRemoveMedia}
+                        />
+                    ) : null}
 
                     <View style={{ height: 1, backgroundColor: color.hairline }} />
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 24 }}>

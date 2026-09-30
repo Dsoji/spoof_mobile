@@ -35,11 +35,19 @@ function defaultSlot(): Date {
  */
 export default function Publish() {
     const insets = useSafeAreaInsets();
-    const params = useLocalSearchParams<{ text?: string; accountIds?: string; captions?: string; draftId?: string }>();
+    const params = useLocalSearchParams<{
+        text?: string;
+        accountIds?: string;
+        captions?: string;
+        media?: string;
+        draftId?: string;
+    }>();
     const text_ = params.text ?? '';
     // Per-platform captions from compose, as JSON — route params are strings.
     const platformSettings = captionSettings(parseCaptions(params.captions));
     const accountIds = (params.accountIds ?? '').split(',').filter(Boolean);
+    // Already uploaded by compose — these are Bunny urls, not local files.
+    const media = parseMedia(params.media);
     const channels = useChannels();
     const platforms = [
         ...new Set(
@@ -56,7 +64,7 @@ export default function Publish() {
 
     const submit = async () => {
         if (sending) return;
-        if (accountIds.length === 0 || (!text_ && !platformSettings)) {
+        if (accountIds.length === 0 || (!text_ && !platformSettings && media.length === 0)) {
             toast('Nothing to post — go back and write something.');
             return;
         }
@@ -74,6 +82,7 @@ export default function Publish() {
                     status: mode === 'now' ? 'published' : mode === 'schedule' ? 'scheduled' : 'draft',
                     scheduledAt: mode === 'schedule' ? when.toISOString() : undefined,
                     platformSettings,
+                    ...(media.length ? { media } : {}),
                 },
                 key.current,
             );
@@ -183,6 +192,29 @@ export default function Publish() {
             </View>
         </View>
     );
+}
+
+/**
+ * The attachments compose uploaded, as they came through the route param.
+ *
+ * Validated rather than trusted: a param is a string that survived a navigation,
+ * and a malformed one should cost the attachments, not the post.
+ */
+function parseMedia(raw: string | undefined): { url: string; type: 'image' | 'video' | 'gif' }[] {
+    if (!raw) return [];
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter(
+            (item): item is { url: string; type: 'image' | 'video' | 'gif' } =>
+                Boolean(item) &&
+                typeof item === 'object' &&
+                typeof (item as { url?: unknown }).url === 'string' &&
+                ['image', 'video', 'gif'].includes((item as { type?: unknown }).type as string),
+        );
+    } catch {
+        return [];
+    }
 }
 
 function parseCaptions(raw: string | undefined): Record<string, string> {
