@@ -49,14 +49,35 @@ the bearer plugin; the flow is otherwise unchanged.
 | --- | --- | --- |
 | `POST /api/v1/auth/request-code` | `requestSignUpCode` / `resendSignInCode` | `src/app/actions/auth.ts` |
 | `POST /api/v1/auth/verify` | `verifySignInCode` | returns a bearer token |
+| `POST /api/v1/auth/social` | `signInWithIdTokenFor` | ~~built~~ — ID token in, bearer token out |
 | `GET /api/v1/me` | `getOptionalUser` + workspace | user, workspace, plan, channel count |
 
-Apple and Google are native SDK flows on the client; the server only needs to
-accept the resulting identity. **Apple private-relay addresses** land in
-`public.users.email`, which is `NOT NULL UNIQUE` — the same person signing in
-with Apple-hidden on mobile and their real address on web becomes two accounts.
-Decide the linking rule before shipping, and register the sending domain with
-Apple or every Resend email to those users bounces.
+### Social sign-in — built
+
+Native, not the web's redirect flow. The phone gets a signed ID token from Apple
+or Google and posts `{ provider, idToken, nonce?, name? }`; the studio verifies
+it against the provider's published keys and returns
+`{ token, userId, isNewAccount }` — the same bearer credential `/verify` returns.
+
+- **Apple needs no client secret and no Services ID.** The secret is only for
+  building an authorization URL, which is the redirect flow. The ID-token path
+  verifies with `appBundleIdentifier` as the audience, so that value must stay in
+  step with `ios.bundleIdentifier` in `app.json`.
+- **Google needs its own iOS client ID.** A token minted for the web client
+  carries the wrong `aud`. The studio's `google.clientId` is a list of accepted
+  audiences; the app reads `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` and hides the
+  button when it is absent.
+- **The nonce goes over raw.** Apple echoes the value it was given, and the
+  provider compares `exact-or-sha256`, so nothing is hashed client-side.
+- **Apple reports the name once, ever** — first authorization only, never again,
+  not after a reinstall. `name` exists for that one call.
+
+**Apple private-relay addresses** land in `public.users.email`, which is
+`NOT NULL UNIQUE` — the same person signing in with Apple-hidden on mobile and
+their real address on web becomes two accounts. That is Apple's design and is
+left as it is; `trustedProviders` covers the case where the addresses *do* match.
+Still outstanding: register the sending domain with Apple, or every Resend email
+to a private-relay user bounces.
 
 ## Notes
 

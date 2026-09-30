@@ -11,7 +11,8 @@
       "icon": "./assets/images/icon.png",
       "bundleIdentifier": "mobile.spoofkitchen.com",
       "appleTeamId": "LY4RMX6DLQ",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -38,8 +39,10 @@
           "resizeMode": "contain"
         }
       ],
+      "expo-apple-authentication",
       "expo-secure-store",
       "@react-native-community/datetimepicker",
+      "./plugins/with-google-signin-scheme",
       "./plugins/with-ios-scene-lifecycle"
     ],
     "experiments": {

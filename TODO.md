@@ -23,9 +23,11 @@ failure reason, delete, reschedule via `WhenPicker`, "Edit draft" / "Edit text"
 reopening `compose.tsx` with `postId` so it PATCHes instead of creating a
 second). `updatePost` and `deletePost` are in `src/api/posts.ts`.
 
-**Native projects are checked in.** `ios/` and `android/` are prebuilt and
-`npm run ios` is `expo run:ios`, so **push and RevenueCat are no longer blocked
-on `eas init`** — a local dev build is enough for both.
+**`npm run ios` builds the real app.** It is `expo run:ios` now, not Expo Go, so
+**push and RevenueCat are no longer blocked on `eas init`** — a local dev build
+is enough for both. `ios/` and `android/` are generated and **gitignored**, so
+every native change belongs in `app.json` or a config plugin under `plugins/`;
+a hand edit inside `ios/` is gone at the next prebuild.
 
 **Nothing has been run on a device.** Everything below is written and
 type-checked, not seen.
@@ -74,6 +76,44 @@ an arbitrary one. **The text is still fixed once saved** — that is what is lef
 2. Nothing to do about re-arming: changing the time resets `reminder_sent_at`
    server-side, so an edited reminder fires again at the new time.
 
+## Next: finish Apple and Google sign-in
+
+Both flows are **written and type-checked** on both sides — the studio's
+`POST /api/v1/auth/social` (studio `13957db`) and the app's `src/api/social.ts`,
+wired into `welcome.tsx`. Neither has run once. What is left is console work and
+a build.
+
+**Apple — one checkbox, no credentials.**
+
+1. Apple Developer portal → Identifiers → the App ID `mobile.spoofkitchen.com` →
+   tick **Sign in with Apple** → Save. There is deliberately no key and no
+   Services ID to create: the native flow verifies against Apple's public keys
+   with the bundle id as the audience.
+2. `npm run ios`. The `expo-apple-authentication` plugin writes the
+   `com.apple.developer.applesignin` entitlement, which is why this needs a
+   rebuild and not just a Metro restart. Confirm with
+   `npx expo config --type introspect` — the entitlement should be there already.
+3. Sign in. A brand-new account should land on `/onboarding/niche`, a returning
+   one on the tabs.
+
+**Google — one client ID.**
+
+1. Google Cloud console → the studio's project → Credentials → Create OAuth
+   client ID → **iOS**, bundle id `mobile.spoofkitchen.com`. It has no secret.
+2. Put it in **both** repos: `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` in the app's
+   `.env.local` (see `.env.example`) and `GOOGLE_IOS_CLIENT_ID` in the studio's
+   `.env`. The app mints the token; the studio only accepts an audience it has
+   been told about. Miss the second and every sign-in fails on a bad audience.
+3. `npm run ios` again — `plugins/with-google-signin-scheme.js` derives the
+   reverse-DNS URL scheme from that client ID and puts it in Info.plist. It
+   throws if the value is not a Google client ID, which is what catches the web
+   client ID being pasted by mistake.
+
+**Known and accepted:** a user who picks "Hide My Email" arrives as a
+`privaterelay.appleid.com` address. That is a real, different mailbox, so it
+becomes its own account — Apple's design, not a bug. Still outstanding for those
+users: register the sending domain with Apple, or Resend mail to them bounces.
+
 ## Next: RevenueCat, app side
 
 The studio side is finished — `/api/webhooks/revenuecat`, `GET /api/v1/billing`,
@@ -81,7 +121,7 @@ The studio side is finished — `/api/webhooks/revenuecat`, `GET /api/v1/billing
 What's left is entirely in this repo.
 
 1. `npx expo install react-native-purchases`, then `npm run ios` to rebuild the
-   native project. No EAS needed: `ios/` is checked in.
+   native project. No EAS needed — `expo run:ios` prebuilds and builds locally.
 2. Configure with the `appl_` public SDK key (safe to commit; it ships in the
    binary).
 3. **`Purchases.logIn(appUserId)`** with the `appUserId` from
@@ -133,11 +173,6 @@ Studio side is done: `device_push_tokens`, `POST`/`DELETE /api/v1/devices`,
   left dead. Both want one back once there is an upload behind it.
 - **AI rewrite** in compose, and the "three angles" on a note, were removed
   rather than left as dead buttons. Both need endpoints that do not exist.
-- **Apple and Google sign-in.** The buttons are `disabled` rather than dead now,
-  but the flows do not exist: Better Auth has no social provider configured on
-  the studio side, and the app needs `expo-apple-authentication` plus a native
-  Google flow. Apple's guidelines make Apple mandatory as soon as Google is
-  offered, so they ship together or not at all.
 - **Onboarding answers** (`niche`, `goal`) still go nowhere, on both platforms.
 - **One unused import** — `radius` in `checkout.tsx:7`. The only lint output
   the repo produces.

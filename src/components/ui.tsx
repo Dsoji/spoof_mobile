@@ -306,22 +306,29 @@ export function SocialButton({
     label,
     onPress,
     disabled = false,
+    loading = false,
 }: {
     provider: 'apple' | 'google';
     /** Announced, not drawn. */
     label: string;
     onPress?: () => void;
     disabled?: boolean;
+    /** Swaps the mark for a spinner and blocks presses, as Button does. */
+    loading?: boolean;
 }) {
     const dark = provider === 'apple';
+    const inert = disabled || loading;
+    // Loading keeps the button's own colour — it is working, not unavailable —
+    // where disabled greys it.
     const bg = disabled ? color.inactive : dark ? color.ink : color.surface;
-    const fg = disabled ? color.inactiveFg : color.white;
+    const fg = disabled ? color.inactiveFg : dark ? color.white : color.ink;
 
     return (
         <Pressable
-            onPress={disabled ? undefined : onPress}
+            onPress={inert ? undefined : onPress}
             accessibilityRole="button"
             accessibilityLabel={label}
+            accessibilityState={{ disabled: inert, busy: loading }}
             style={({ pressed }) => ({
                 flex: 1,
                 height: 52,
@@ -336,7 +343,13 @@ export function SocialButton({
                 opacity: pressed ? 0.9 : 1,
             })}
         >
-            {dark ? <AppleMark size={22} tint={fg} /> : <GoogleMark size={21} />}
+            {loading ? (
+                <ActivityIndicator size="small" color={fg} />
+            ) : dark ? (
+                <AppleMark size={22} tint={fg} />
+            ) : (
+                <GoogleMark size={21} />
+            )}
         </Pressable>
     );
 }

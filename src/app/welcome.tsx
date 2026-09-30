@@ -9,6 +9,7 @@ import { Field } from '@/components/Field';
 import { Icon, SwirlMark } from '@/components/Icon';
 import { requestCode } from '@/api/auth';
 import { toast } from '@/components/Toast';
+import { appleConfigured, googleConfigured, signInWithApple, signInWithGoogle } from '@/api/social';
 import { HANDOFF } from '@/theme/handoff';
 import { useMarkLanded } from '@/lib/mark-handoff';
 import { color, font, layout, shadow, space, text, tone, HIT } from '@/theme';
@@ -45,6 +46,35 @@ export default function Welcome() {
     );
 
     const canSend = email.trim().length > 0 && (!needsName || name.trim().length > 0);
+
+    /**
+     * Which provider is mid-sign-in, so the other two paths can be blocked
+     * without a second flag. A social sign-in opens a sheet the app does not
+     * control; tapping the other provider underneath it would leave two
+     * authorizations racing to store a token.
+     */
+    const [social, setSocial] = useState<'apple' | 'google' | null>(null);
+    const busy = sending || social !== null;
+
+    const onSocial = async (provider: 'apple' | 'google') => {
+        if (busy) return;
+        setSocial(provider);
+        try {
+            const result = provider === 'apple' ? await signInWithApple() : await signInWithGoogle();
+            if (result.ok) {
+                // Same landing as verify.tsx, including onboarding for an
+                // account this sign-in just created — and `replace`, so the back
+                // gesture cannot return to a sign-in screen from inside the app.
+                router.replace(result.isNewAccount ? '/onboarding/niche' : '/(tabs)');
+                return;
+            }
+            // A cancel is the user changing their mind, not a failure worth a
+            // toast about.
+            if (!result.cancelled) toast(result.message);
+        } finally {
+            setSocial(null);
+        }
+    };
 
     const onSend = async () => {
         if (!canSend || sending) return;
@@ -191,24 +221,39 @@ export default function Welcome() {
                     <PillButton
                         label={needsName ? 'Create my kitchen' : 'Email me a code'}
                         onPress={onSend}
-                        disabled={!canSend}
+                        disabled={!canSend || social !== null}
                         loading={sending}
                     />
 
                     <Divider label="or" />
 
                     {/*
-                      * Neither provider is wired yet — Better Auth has no Apple
-                      * or Google provider configured, so there is nothing to
-                      * hand a token to. `disabled` is what makes that visible:
-                      * without it these draw at full strength and swallow the
-                      * tap, which reads as the app being broken rather than the
-                      * button being unavailable. Drop it when the providers land.
+                      * Each provider is shown only where it can actually work:
+                      * Apple on iOS, Google once EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
+                      * is in the build. A button that is drawn but disabled is
+                      * still honest; one that is drawn and silently does nothing
+                      * is not, which is what these both were.
                       */}
-                    <View style={{ flexDirection: 'row', gap: 10 }}>
-                        <SocialButton provider="apple" label="Continue with Apple" disabled />
-                        <SocialButton provider="google" label="Continue with Google" disabled />
-                    </View>
+                    {appleConfigured || googleConfigured ? (
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                            {appleConfigured ? (
+                                <SocialButton
+                                    provider="apple"
+                                    label="Continue with Apple"
+                                    loading={social === 'apple'}
+                                    disabled={busy && social !== 'apple'}
+                                    onPress={() => void onSocial('apple')}
+                                />
+                            ) : null}
+                            <SocialButton
+                                provider="google"
+                                label="Continue with Google"
+                                loading={social === 'google'}
+                                disabled={!googleConfigured || (busy && social !== 'google')}
+                                onPress={() => void onSocial('google')}
+                            />
+                        </View>
+                    ) : null}
 
                     <Link href="/verify" asChild>
                         <Pressable
