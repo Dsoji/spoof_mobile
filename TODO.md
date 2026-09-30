@@ -35,6 +35,11 @@ type-checked, not seen.
 These are not missing features — they are screens that state something false,
 or controls that look live and do nothing. Worst first.
 
+The dead controls are fixed as of `4577dfc`: Apple and Google on `welcome.tsx`
+are `disabled` until the providers exist, both reminder controls open
+`WhenPicker`, and the capture sheet's image button is gone until there is an
+upload behind it. What is left is the billing story.
+
 1. **`src/app/billing.tsx` tells every user they are on Pro.** The whole screen
    is hard-coded: "Pro", "$21.99/mo", "App Store", "Renews 10 October". It is
    reached from the You tab (`you.tsx:297`) *and* from the Chat tab's paywall
@@ -51,36 +56,23 @@ or controls that look live and do nothing. Worst first.
    `checkout.tsx`'s "Pay ₦20,354" button calls `router.dismissAll()`: a
    checkout screen that takes no payment. Either wire the real flows or take
    the screens out, but do not ship a button that pretends to charge someone.
-3. **Apple and Google sign-in look live and are not.** `welcome.tsx:201-202`
-   render `SocialButton` with no `onPress`; the prop is optional, so they draw
-   full-strength and swallow the tap. Until the providers are wired, pass
-   `disabled` — the component already greys itself.
-4. **The note reminder's "Change" is still dead** (`note/[id].tsx:124`) — a
-   `Pressable` with no handler. `src/components/WhenPicker.tsx` now exists (the
-   posts work built it), so this is wiring, not design.
-5. **"Pick a date" on the capture sheet is dead** (`capture.tsx:152`). A
-   reminder can therefore only ever be one of the three presets — the same
-   `WhenPicker` fixes it.
-6. **The image button on the capture sheet is dead** (`capture.tsx:187`). Media
-   upload is not built (see below); either wire it or remove the button.
-7. **The Notes tab's "Used" filter is a no-op** that falls through to All,
+3. **The Notes tab's "Used" filter is a no-op** that falls through to All,
    because nothing records which post a note became. The code says so at
    `(tabs)/notes.tsx:25`. Record the link when a note becomes a post, or drop
    the filter.
 
 ## Next: editable notes
 
-`PATCH /api/v1/notes/:id` is built and `useNotes` exposes `update`. Nothing
-calls it, so a note is fixed the moment it is saved.
+`PATCH /api/v1/notes/:id` is built and `useNotes` exposes `update`.
+
+The reminder half is done (`4577dfc`): `note/[id].tsx` has a `Reminder`
+component that sets, moves and clears the time, and the capture sheet can pick
+an arbitrary one. **The text is still fixed once saved** — that is what is left.
 
 1. Make the body in `src/app/note/[id].tsx` editable — a `TextInput` that saves
-   on blur, or an explicit edit affordance.
-2. Wire the reminder controls in items 4 and 5 above. Clearing matters as much
-   as changing: send `remindAt: null`, which the endpoint distinguishes from
-   omitting the field.
-3. Changing the time re-arms the reminder server-side — `updateNote` resets
-   `reminder_sent_at` — so an edited reminder fires again at the new time.
-   Nothing extra to do in the app.
+   on blur, or an explicit edit affordance. `update` takes `text` already.
+2. Nothing to do about re-arming: changing the time resets `reminder_sent_at`
+   server-side, so an edited reminder fires again at the new time.
 
 ## Next: RevenueCat, app side
 
@@ -135,14 +127,20 @@ Studio side is done: `device_push_tokens`, `POST`/`DELETE /api/v1/devices`,
   publishing targets `PostTarget.platform` rather than an account id — so a
   second Instagram account is invisible on the channels screen and a post goes
   to every account on that platform.
-- **Media in compose.** `POST /api/v1/media` is built; the picker and upload
-  are not. Needs `expo-image-picker`. Compose has no media button at all (that
-  was deliberate) — but the capture sheet does, and it is dead.
+- **Media anywhere.** `POST /api/v1/media` is built; the picker and upload are
+  not. Needs `expo-image-picker`. Neither compose nor the capture sheet offers a
+  media button now — the capture sheet's was removed in `4577dfc` rather than
+  left dead. Both want one back once there is an upload behind it.
 - **AI rewrite** in compose, and the "three angles" on a note, were removed
   rather than left as dead buttons. Both need endpoints that do not exist.
+- **Apple and Google sign-in.** The buttons are `disabled` rather than dead now,
+  but the flows do not exist: Better Auth has no social provider configured on
+  the studio side, and the app needs `expo-apple-authentication` plus a native
+  Google flow. Apple's guidelines make Apple mandatory as soon as Google is
+  offered, so they ship together or not at all.
 - **Onboarding answers** (`niche`, `goal`) still go nowhere, on both platforms.
-- **Two unused imports** — `radius` in `checkout.tsx:7`, `space` in
-  `note/[id].tsx:11`. The only lint output the repo produces.
+- **One unused import** — `radius` in `checkout.tsx:7`. The only lint output
+  the repo produces.
 - **Idempotency keys are never pruned** — `api_idempotency_keys` grows forever.
   It has a `created_at` index ready for a cleanup job.
 - **Push receipts** are not checked, so dead tokens are only pruned when Expo
