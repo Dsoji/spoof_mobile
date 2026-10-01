@@ -119,6 +119,14 @@ flex rows.
   platforms, media, status, scheduledAt, platformSettings)` takes
   `'published' | 'scheduled' | 'draft'`. One call, three statuses. Do not add a
   "Schedule" entry point beside "New post" — that was already tried and removed.
+- **`npm run ios` does not re-apply config plugins.** `expo run:ios` only
+  prebuilds when `ios/` is absent; with one already there it goes straight to an
+  incremental build, so a change to `app.json` or anything under `plugins/` is
+  silently ignored and the symptom is a missing entitlement or Info.plist key —
+  which surfaces as a runtime failure, not a build error. Run `npm run prebuild`
+  (`expo prebuild --clean`) after any native config change. `ios/` and
+  `android/` are gitignored and hold no hand edits, so regenerating is free.
+
 - **A workspace, not a user, owns everything.** Every studio action takes a
   `workspaceId` and validates team-wide. New server actions touching social
   data must call the guards in `content_kitchen/src/lib/social-ownership.ts`.

@@ -88,6 +88,18 @@ export async function signInWithApple(): Promise<SocialResult> {
         return { ok: false, message: 'Sign in with Apple is only available on iOS.' };
     }
 
+    // The honest check, unlike the platform guess above: it answers false on a
+    // build whose entitlement is missing, which is the single most common
+    // reason signInAsync throws.
+    if (!(await AppleAuthentication.isAvailableAsync())) {
+        return {
+            ok: false,
+            message: __DEV__
+                ? 'Sign in with Apple is unavailable on this build — the entitlement is missing. Enable the capability on the App ID and rebuild with `npm run ios`.'
+                : 'Sign in with Apple is not available on this device.',
+        };
+    }
+
     const nonce = await newNonce();
 
     let credential: AppleAuthentication.AppleAuthenticationCredential;
@@ -105,7 +117,20 @@ export async function signInWithApple(): Promise<SocialResult> {
         // Backing out of Apple's sheet throws with this code rather than
         // resolving, so it has to be caught to tell a cancel from a failure.
         if (isAppleCancel(e)) return CANCELLED;
-        return { ok: false, message: 'Could not sign in with Apple. Please try again.' };
+
+        // Everything else from Apple is a configuration or device problem, and
+        // the generic retry message was actively misleading — "try again"
+        // cannot fix a missing entitlement or a simulator with no Apple ID
+        // signed in. The code is what names the cause, so it goes to the
+        // console always and into the message in development.
+        const detail = appleErrorDetail(e);
+        console.warn('[social] Apple sign-in failed', detail, e);
+        return {
+            ok: false,
+            message: __DEV__
+                ? `Apple sign-in failed (${detail}). Check the console — a missing entitlement or no Apple ID signed in on this device are the usual causes.`
+                : 'Could not sign in with Apple. Please try again.',
+        };
     }
 
     if (!credential.identityToken) {
@@ -134,6 +159,17 @@ export async function signInWithApple(): Promise<SocialResult> {
 /** Apple's cancel is an error with this code, not a resolved "cancelled" result. */
 function isAppleCancel(e: unknown): boolean {
     return typeof e === 'object' && e !== null && 'code' in e && e.code === 'ERR_REQUEST_CANCELED';
+}
+
+/** Apple's own code and message, which is the only thing that identifies the cause. */
+function appleErrorDetail(e: unknown): string {
+    if (typeof e === 'object' && e !== null) {
+        const { code, message } = e as { code?: unknown; message?: unknown };
+        const parts = [typeof code === 'string' ? code : null, typeof message === 'string' ? message : null];
+        const detail = parts.filter(Boolean).join(': ');
+        if (detail) return detail;
+    }
+    return String(e);
 }
 
 const GOOGLE_ISSUER = 'https://accounts.google.com';
