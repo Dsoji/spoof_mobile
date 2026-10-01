@@ -29,8 +29,10 @@ is enough for both. `ios/` and `android/` are generated and **gitignored**, so
 every native change belongs in `app.json` or a config plugin under `plugins/`;
 a hand edit inside `ios/` is gone at the next prebuild.
 
-**Nothing has been run on a device.** Everything below is written and
-type-checked, not seen.
+**Barely anything has been run on a device.** Social sign-in is the one path
+confirmed working end to end against production. Everything else below —
+the posts screen, the inbox, the redesign, the reminder pickers, media upload —
+is written and type-checked, not seen.
 
 ## Broken in front of the user
 
@@ -76,12 +78,36 @@ an arbitrary one. **The text is still fixed once saved** — that is what is lef
 2. Nothing to do about re-arming: changing the time resets `reminder_sent_at`
    server-side, so an edited reminder fires again at the new time.
 
-## Next: finish Apple and Google sign-in
+## Apple and Google sign-in — working
 
-Both flows are **written and type-checked** on both sides — the studio's
-`POST /api/v1/auth/social` (studio `13957db`) and the app's `src/api/social.ts`,
-wired into `welcome.tsx`. Neither has run once. What is left is console work and
-a build.
+**Signed in successfully against production on 2026-10-01.** The studio's
+`POST /api/v1/auth/social` (studio `13957db`) is deployed, the iOS OAuth client
+exists, and `src/api/social.ts` carries both flows.
+
+Three things went wrong on the way, all fixed, all worth not repeating:
+
+1. The Apple entitlement was missing from the build. `expo run:ios` does **not**
+   re-apply config plugins to an existing `ios/` — run `npm run prebuild` after
+   any `app.json` or `plugins/` change. Now in CLAUDE.md.
+2. Google answered "Access blocked … doesn't comply with Google's OAuth 2.0
+   policy", error 400, before showing a consent screen. The redirect was
+   `scheme://path`; Google reads what follows `//` as a host and refuses it. One
+   slash — `scheme:/path` — is the documented form (`377924c`).
+3. `/api/v1/auth/social` 404'd until the studio was deployed. The app's
+   `.env.local` points at production, so the studio has to be live before any
+   provider can finish.
+
+**Account linking is confirmed for Google**: signing in with Google on an
+address that already had an email-code account landed on that account, kitchens
+and all, rather than minting a second. That is `trustedProviders` doing its job.
+
+Still to confirm on a device: **Apple** — both the sign-in itself and the same
+linking behaviour. Apple is the riskier of the two, because a user who picks
+"Hide My Email" arrives as a `privaterelay.appleid.com` address, which is a
+genuinely different mailbox and will correctly become its own account.
+
+**Set up already, kept here because it is needed again on a new machine or a
+fresh App ID:**
 
 **Apple — one checkbox, no credentials.**
 
