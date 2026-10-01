@@ -182,14 +182,17 @@ export async function signInWithGoogle(): Promise<SocialResult> {
     try {
         const discovery = await AuthSession.fetchDiscoveryAsync(GOOGLE_ISSUER);
 
-        // Google requires the reverse-DNS form of the client ID as the redirect
-        // scheme for an installed app; it will not accept the app's own
-        // `spoofkitchen://`. The scheme must also be declared in app.json, or
-        // iOS has nothing to hand the redirect back to.
-        const redirectUri = AuthSession.makeRedirectUri({
-            scheme: reversedClientId(GOOGLE_IOS_CLIENT_ID),
-            path: 'oauth2redirect',
-        });
+        // `scheme:/path` — ONE slash, and built by hand rather than with
+        // makeRedirectUri, which produces `scheme://path`. Google reads the
+        // two-slash form as having a host and rejects the request outright:
+        // "Access blocked: Authorisation error ... doesn't comply with Google's
+        // OAuth 2.0 policy", before the user is ever asked to approve anything.
+        // expo-auth-session's own Google provider builds it this way too.
+        //
+        // The scheme is the reverse-DNS form of the client ID; Google will not
+        // accept the app's own `spoofkitchen://`. plugins/with-google-signin-scheme.js
+        // registers it in Info.plist, or iOS has nothing to hand the redirect to.
+        const redirectUri = `${reversedClientId(GOOGLE_IOS_CLIENT_ID)}:/oauthredirect`;
 
         const nonce = await newNonce();
 
